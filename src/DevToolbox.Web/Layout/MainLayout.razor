@@ -1,0 +1,39 @@
+@inherits LayoutComponentBase
+
+<div class="app-container">
+    @* 左侧导航 - 固定不可收起 (AI Accept [Modified]) *@
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <span class="logo">🔧 DevToolbox</span>
+        </div>
+
+        <div class="sidebar-search">
+            <input type="text"
+                   placeholder="🔍 搜索工具..."
+                   @bind="SearchKeyword"
+                   @bind:event="oninput" />
+        </div>
+
+        <nav class="sidebar-nav">
+            <NavMenu SearchKeyword="@SearchKeyword" />
+        </nav>
+    </aside>
+
+    @* 右侧内容区 (AI Accept [Modified]: 移除空header，内容靠上居中) *@
+    <main>
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    // AI Accept [Modified]: Removed sidebar collapse, kept theme toggle
+    private bool IsDarkTheme { get; set; } = false;
+    private string SearchKeyword { get; set; } = string.Empty;
+
+    private void ToggleTheme()
+    {
+        IsDarkTheme = !IsDarkTheme;
+    }
+}

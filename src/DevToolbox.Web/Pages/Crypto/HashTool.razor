@@ -1,0 +1,115 @@
+@page "/crypto/hash"
+@inject DevToolbox.Web.Services.ICryptoService CryptoService
+
+<PageTitle>Hash 计算 - DevToolbox</PageTitle>
+
+@* Hash calculation tool (AI Accept [Fixed]: per-algorithm error handling) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🔐 Hash 计算</h1>
+        <p>计算文本的MD5、SHA1、SHA256、SHA512哈希值</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span>输入文本</span>
+            <button class="btn btn-sm btn-secondary" @onclick="Clear">清空</button>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control" @bind="InputText"
+                      placeholder="请输入要计算哈希的文本..."></textarea>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Calculate">计算哈希</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (Results.Any())
+    {
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>计算结果</span>
+            </div>
+            <div class="card-body">
+                <ul class="result-list">
+                    @foreach (var result in Results)
+                    {
+                        <li class="result-item">
+                            <span><strong>@result.Key:</strong> @result.Value</span>
+                            <button class="btn btn-sm btn-secondary" @onclick="() => CopyResult(result.Value)">复制</button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Fixed]: Hash calculation with per-algorithm error handling
+    private string InputText { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private Dictionary<string, string> Results { get; set; } = new();
+
+    /// <summary>
+    /// Calculate all hash values, each algorithm isolated (AI Accept [Fixed])
+    /// </summary>
+    private void Calculate()
+    {
+        Results.Clear();
+        ErrorMessage = string.Empty;
+
+        if (string.IsNullOrEmpty(InputText))
+            return;
+
+        TryHash("MD5", () => CryptoService.Md5Hash(InputText));
+        TryHash("SHA1", () => CryptoService.Sha1Hash(InputText));
+        TryHash("SHA256", () => CryptoService.Sha256Hash(InputText));
+        TryHash("SHA512", () => CryptoService.Sha512Hash(InputText));
+
+        if (Results.Values.Any(v => v.StartsWith("⚠️")))
+        {
+            ErrorMessage = "Some algorithms are not supported in browser environment.";
+        }
+    }
+
+    /// <summary>
+    /// Try computing a single hash, catch failures gracefully (AI Accept [Added])
+    /// </summary>
+    private void TryHash(string name, Func<string> hashFunc)
+    {
+        try
+        {
+            Results[name] = hashFunc();
+        }
+        catch (PlatformNotSupportedException)
+        {
+            Results[name] = "⚠️ Browser not supported";
+        }
+        catch (Exception ex)
+        {
+            Results[name] = $"⚠️ Error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Copy result (AI Accept)
+    /// </summary>
+    private void CopyResult(string value)
+    {
+        // JS interop required for actual clipboard access
+    }
+
+    private void Clear()
+    {
+        InputText = string.Empty;
+        ErrorMessage = string.Empty;
+        Results.Clear();
+    }
+}

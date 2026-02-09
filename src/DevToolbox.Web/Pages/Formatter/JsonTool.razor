@@ -1,0 +1,170 @@
+@page "/formatter/json"
+@using DevToolbox.Web.Services
+@inject IFormatterService FormatterService
+@inject IJSRuntime JS
+
+<PageTitle>JSON 格式化 - DevToolbox</PageTitle>
+
+@* JSON formatter tool page (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>📝 JSON 格式化</h1>
+        <p>JSON 格式化美化、压缩，支持语法校验</p>
+    </div>
+
+    <div class="tool-content">
+        <div class="card">
+            <div class="card-header">
+                <span>输入</span>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-secondary" @onclick="LoadSample">示例</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="Clear">清空</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="InputText"
+                          placeholder="粘贴 JSON 内容..."></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>输出</span>
+                <button class="btn btn-sm btn-primary" @onclick="CopyOutput">📋 复制</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="OutputText"
+                          readonly
+                          placeholder="结果将显示在这里..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Format">✨ 格式化</button>
+        <button class="btn btn-success" @onclick="Compress">📦 压缩</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: JSON formatter tool state
+    private string InputText { get; set; } = string.Empty;
+    private string OutputText { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string SuccessMessage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Format JSON with indentation (AI Accept)
+    /// </summary>
+    private void Format()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            ErrorMessage = "Please enter JSON content.";
+            return;
+        }
+
+        try
+        {
+            OutputText = FormatterService.JsonFormat(InputText);
+            SuccessMessage = "Formatted successfully.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            ErrorMessage = $"Invalid JSON: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Format failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Compress JSON (AI Accept)
+    /// </summary>
+    private void Compress()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            ErrorMessage = "Please enter JSON content.";
+            return;
+        }
+
+        try
+        {
+            OutputText = FormatterService.JsonCompress(InputText);
+            SuccessMessage = "Compressed successfully.";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            ErrorMessage = $"Invalid JSON: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Compress failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Copy output to clipboard via JS interop (AI Accept)
+    /// </summary>
+    private async Task CopyOutput()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(OutputText))
+        {
+            ErrorMessage = "Nothing to copy.";
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", OutputText);
+            SuccessMessage = "Copied to clipboard!";
+        }
+        catch
+        {
+            ErrorMessage = "Clipboard access denied. Please copy manually.";
+        }
+    }
+
+    /// <summary>
+    /// Load sample JSON (AI Accept)
+    /// </summary>
+    private void LoadSample()
+    {
+        InputText = "{\"name\":\"DevToolbox\",\"version\":\"1.0.0\",\"features\":[\"encoding\",\"crypto\",\"formatter\"],\"config\":{\"theme\":\"light\",\"language\":\"zh-CN\",\"maxItems\":100}}";
+        OutputText = string.Empty;
+        ClearMessages();
+    }
+
+    private void Clear()
+    {
+        InputText = string.Empty;
+        OutputText = string.Empty;
+        ClearMessages();
+    }
+
+    private void ClearMessages()
+    {
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+    }
+}

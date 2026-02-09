@@ -1,0 +1,259 @@
+@page "/crypto/aes"
+@using DevToolbox.Web.Services
+@inject ICryptoService CryptoService
+
+<PageTitle>AES 加密/解密 - DevToolbox</PageTitle>
+
+@* AES encryption/decryption tool page (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🔐 AES 加密/解密</h1>
+        <p>AES 对称加密工具，支持 128/192/256 位密钥，CBC/ECB 模式，PKCS7 填充</p>
+    </div>
+
+    @* Options panel *@
+    <div class="options-panel">
+        <div class="options-title">加密参数</div>
+        <div class="options-row">
+            <div class="option-item">
+                <label class="form-label" style="margin: 0;">密钥长度：</label>
+                <select class="form-control" style="width: auto; min-width: 100px;" @bind="KeySize">
+                    <option value="128">AES-128</option>
+                    <option value="192">AES-192</option>
+                    <option value="256">AES-256</option>
+                </select>
+            </div>
+            <div class="option-item">
+                <label class="form-label" style="margin: 0;">加密模式：</label>
+                <select class="form-control" style="width: auto; min-width: 100px;" @bind="Mode">
+                    <option value="CBC">CBC</option>
+                    <option value="ECB">ECB</option>
+                </select>
+            </div>
+            <div class="option-item">
+                <label class="form-label" style="margin: 0;">输出格式：</label>
+                <select class="form-control" style="width: auto; min-width: 100px;" @bind="OutputFormat">
+                    <option value="Base64">Base64</option>
+                    <option value="Hex">Hex</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    @* Key & IV inputs *@
+    <div class="tool-content" style="margin-top: 20px;">
+        <div class="card">
+            <div class="card-header">
+                <span>🔑 Key (密钥)</span>
+                <button class="btn btn-sm btn-primary" @onclick="GenerateKey">随机生成</button>
+            </div>
+            <div class="card-body">
+                <input type="text" class="form-control"
+                       @bind="Key"
+                       placeholder="输入密钥（支持 UTF-8 文本或 Hex 字符串）..." />
+                <p style="color: var(--text-secondary); font-size: 12px; margin: 6px 0 0;">
+                    当前需要 @(KeySize / 8) 字节 | Hex 格式需 @(KeySize / 4) 个字符
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>📎 IV (初始向量)</span>
+                <button class="btn btn-sm btn-primary" @onclick="GenerateIv" disabled="@IsEcbMode">随机生成</button>
+            </div>
+            <div class="card-body">
+                <input type="text" class="form-control"
+                       @bind="Iv"
+                       disabled="@IsEcbMode"
+                       placeholder="@(IsEcbMode ? "ECB 模式不需要 IV" : "输入 IV（16 字节，支持 UTF-8 或 Hex）...")" />
+                <p style="color: var(--text-secondary); font-size: 12px; margin: 6px 0 0;">
+                    @(IsEcbMode ? "ECB 模式不使用 IV" : "固定 16 字节 | Hex 格式需 32 个字符")
+                </p>
+            </div>
+        </div>
+    </div>
+
+    @* Input & Output text areas *@
+    <div class="tool-content" style="margin-top: 20px;">
+        <div class="card">
+            <div class="card-header">
+                <span>📝 输入</span>
+                <button class="btn btn-sm btn-secondary" @onclick="ClearAll">清空</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="InputText"
+                          placeholder="加密时输入明文，解密时输入密文..."></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>📤 输出</span>
+                <button class="btn btn-sm btn-secondary" @onclick="CopyOutput">复制</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="OutputText"
+                          readonly
+                          placeholder="结果将显示在这里..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    @* Action buttons *@
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Encrypt">🔒 加密</button>
+        <button class="btn btn-success" @onclick="Decrypt">🔓 解密</button>
+        <button class="btn btn-secondary" @onclick="Swap">⇄ 交换</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: AES tool state
+    private string InputText { get; set; } = string.Empty;
+    private string OutputText { get; set; } = string.Empty;
+    private string Key { get; set; } = string.Empty;
+    private string Iv { get; set; } = string.Empty;
+    private int KeySize { get; set; } = 256;
+    private string Mode { get; set; } = "CBC";
+    private string OutputFormat { get; set; } = "Base64";
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string SuccessMessage { get; set; } = string.Empty;
+
+    private bool IsEcbMode => Mode == "ECB";
+
+    /// <summary>
+    /// Encrypt plain text (AI Accept)
+    /// </summary>
+    private void Encrypt()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            ErrorMessage = "Please enter plain text to encrypt.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Key))
+        {
+            ErrorMessage = "Please enter or generate a Key.";
+            return;
+        }
+
+        if (!IsEcbMode && string.IsNullOrWhiteSpace(Iv))
+        {
+            ErrorMessage = "CBC mode requires an IV. Please enter or generate one.";
+            return;
+        }
+
+        try
+        {
+            OutputText = CryptoService.AesEncrypt(InputText, Key, Iv, KeySize, Mode, OutputFormat);
+            SuccessMessage = $"Encrypted successfully. (AES-{KeySize}, {Mode}, {OutputFormat})";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Encryption failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Decrypt cipher text (AI Accept)
+    /// </summary>
+    private void Decrypt()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            ErrorMessage = "Please enter cipher text to decrypt.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Key))
+        {
+            ErrorMessage = "Please enter or generate a Key.";
+            return;
+        }
+
+        if (!IsEcbMode && string.IsNullOrWhiteSpace(Iv))
+        {
+            ErrorMessage = "CBC mode requires an IV. Please enter or generate one.";
+            return;
+        }
+
+        try
+        {
+            OutputText = CryptoService.AesDecrypt(InputText, Key, Iv, KeySize, Mode, OutputFormat);
+            SuccessMessage = $"Decrypted successfully. (AES-{KeySize}, {Mode}, {OutputFormat})";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Decryption failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Generate random key (AI Accept)
+    /// </summary>
+    private void GenerateKey()
+    {
+        Key = CryptoService.GenerateRandomKey(KeySize);
+        ClearMessages();
+    }
+
+    /// <summary>
+    /// Generate random IV (AI Accept)
+    /// </summary>
+    private void GenerateIv()
+    {
+        Iv = CryptoService.GenerateRandomIv();
+        ClearMessages();
+    }
+
+    /// <summary>
+    /// Swap input and output (AI Accept)
+    /// </summary>
+    private void Swap()
+    {
+        (InputText, OutputText) = (OutputText, InputText);
+        ClearMessages();
+    }
+
+    /// <summary>
+    /// Copy output to clipboard (AI Accept)
+    /// </summary>
+    private async Task CopyOutput()
+    {
+        SuccessMessage = "Copied! (JS interop required for clipboard)";
+    }
+
+    /// <summary>
+    /// Clear all inputs and outputs (AI Accept)
+    /// </summary>
+    private void ClearAll()
+    {
+        InputText = string.Empty;
+        OutputText = string.Empty;
+        ClearMessages();
+    }
+
+    private void ClearMessages()
+    {
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+    }
+}

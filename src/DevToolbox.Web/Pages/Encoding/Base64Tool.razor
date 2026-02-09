@@ -1,0 +1,114 @@
+@page "/encoding/base64"
+@inject DevToolbox.Web.Services.IEncodingService EncodingService
+
+<PageTitle>Base64 编码/解码 - DevToolbox</PageTitle>
+
+@* Base64工具页面 (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>📦 Base64 编码/解码</h1>
+        <p>将文本与Base64格式互相转换，支持UTF-8编码</p>
+    </div>
+
+    <div class="tool-content">
+        <div class="card">
+            <div class="card-header">
+                <span>输入</span>
+                <button class="btn btn-sm btn-secondary" @onclick="Clear">清空</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="InputText"
+                          placeholder="请输入要编码或解码的文本..."></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>输出</span>
+                <button class="btn btn-sm btn-primary" @onclick="CopyOutput">复制</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="OutputText"
+                          readonly
+                          placeholder="结果将显示在这里..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Encode">编码 →</button>
+        <button class="btn btn-success" @onclick="Decode">← 解码</button>
+        <button class="btn btn-secondary" @onclick="Swap">⇄ 交换</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Base64 tool state and logic
+    private string InputText { get; set; } = string.Empty;
+    private string OutputText { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string SuccessMessage { get; set; } = string.Empty;
+
+    private void Encode()
+    {
+        try
+        {
+            ClearMessages();
+            OutputText = EncodingService.Base64Encode(InputText);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"编码失败: {ex.Message}";
+        }
+    }
+
+    private void Decode()
+    {
+        try
+        {
+            ClearMessages();
+            OutputText = EncodingService.Base64Decode(InputText);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"解码失败: {ex.Message}";
+        }
+    }
+
+    private void Swap()
+    {
+        (InputText, OutputText) = (OutputText, InputText);
+        ClearMessages();
+    }
+
+    private void Clear()
+    {
+        InputText = string.Empty;
+        OutputText = string.Empty;
+        ClearMessages();
+    }
+
+    private async Task CopyOutput()
+    {
+        // Note: Clipboard API needs JS interop in Blazor WASM
+        SuccessMessage = "已复制到剪贴板（需要JS实现）";
+    }
+
+    private void ClearMessages()
+    {
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+    }
+}

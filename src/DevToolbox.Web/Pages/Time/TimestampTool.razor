@@ -1,0 +1,148 @@
+@page "/time/timestamp"
+@inject DevToolbox.Web.Services.ITimeService TimeService
+
+<PageTitle>时间戳转换 - DevToolbox</PageTitle>
+
+@* 时间戳转换工具 (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>⏰ 时间戳转换</h1>
+        <p>Unix时间戳与日期时间互相转换</p>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+            <span>当前时间戳</span>
+            <button class="btn btn-sm btn-primary" @onclick="RefreshCurrent">刷新</button>
+        </div>
+        <div class="card-body">
+            <div class="options-row">
+                <div class="option-item">
+                    <strong>秒：</strong>
+                    <code style="font-size: 16px;">@CurrentSeconds</code>
+                </div>
+                <div class="option-item">
+                    <strong>毫秒：</strong>
+                    <code style="font-size: 16px;">@CurrentMilliseconds</code>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tool-content">
+        <div class="card">
+            <div class="card-header">时间戳 → 日期时间</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">时间戳</label>
+                    <input type="text" class="form-control" @bind="TimestampInput"
+                           placeholder="输入时间戳（秒或毫秒）" />
+                </div>
+                <div class="options-row" style="margin-bottom: 16px;">
+                    <div class="option-item">
+                        <input type="radio" id="seconds" name="unit" checked="@(!IsMilliseconds)"
+                               @onchange="() => IsMilliseconds = false" />
+                        <label for="seconds">秒</label>
+                    </div>
+                    <div class="option-item">
+                        <input type="radio" id="milliseconds" name="unit" checked="@IsMilliseconds"
+                               @onchange="() => IsMilliseconds = true" />
+                        <label for="milliseconds">毫秒</label>
+                    </div>
+                </div>
+                <button class="btn btn-primary" @onclick="ConvertToDateTime">转换 →</button>
+                @if (!string.IsNullOrEmpty(DateTimeResult))
+                {
+                    <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 6px;">
+                        <strong>结果：</strong> @DateTimeResult
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">日期时间 → 时间戳</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">日期时间</label>
+                    <input type="datetime-local" class="form-control" @bind="DateTimeInput" />
+                </div>
+                <button class="btn btn-success" @onclick="ConvertToTimestamp">转换 →</button>
+                @if (!string.IsNullOrEmpty(TimestampResult))
+                {
+                    <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border-radius: 6px;">
+                        <strong>秒：</strong> @TimestampResult<br />
+                        <strong>毫秒：</strong> @TimestampResultMs
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Timestamp conversion tool
+    private long CurrentSeconds { get; set; }
+    private long CurrentMilliseconds { get; set; }
+
+    private string TimestampInput { get; set; } = string.Empty;
+    private bool IsMilliseconds { get; set; } = false;
+    private string DateTimeResult { get; set; } = string.Empty;
+
+    private DateTime DateTimeInput { get; set; } = DateTime.Now;
+    private string TimestampResult { get; set; } = string.Empty;
+    private string TimestampResultMs { get; set; } = string.Empty;
+
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        RefreshCurrent();
+    }
+
+    private void RefreshCurrent()
+    {
+        CurrentSeconds = TimeService.GetTimestampSeconds();
+        CurrentMilliseconds = TimeService.GetTimestampMilliseconds();
+    }
+
+    private void ConvertToDateTime()
+    {
+        try
+        {
+            ErrorMessage = string.Empty;
+            if (long.TryParse(TimestampInput, out var timestamp))
+            {
+                var dt = TimeService.TimestampToDateTime(timestamp, IsMilliseconds);
+                DateTimeResult = dt.ToString("yyyy-MM-dd HH:mm:ss");
+            }
+            else
+            {
+                ErrorMessage = "请输入有效的时间戳";
+            }
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"转换失败: {ex.Message}";
+        }
+    }
+
+    private void ConvertToTimestamp()
+    {
+        try
+        {
+            ErrorMessage = string.Empty;
+            TimestampResult = TimeService.DateTimeToTimestamp(DateTimeInput, false).ToString();
+            TimestampResultMs = TimeService.DateTimeToTimestamp(DateTimeInput, true).ToString();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"转换失败: {ex.Message}";
+        }
+    }
+}

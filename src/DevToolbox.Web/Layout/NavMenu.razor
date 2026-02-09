@@ -1,0 +1,72 @@
+@using DevToolbox.Shared.Models
+@using DevToolbox.Shared.Constants
+@inject NavigationManager NavigationManager
+
+@* 导航菜单组件 (AI Accept) *@
+@foreach (var category in FilteredCategories)
+{
+    <div class="nav-category">
+        <div class="nav-category-header" @onclick="() => ToggleCategory(category.Key)">
+            <span class="category-title">
+                <span class="category-icon">@category.Icon</span>
+                <span class="category-name">@category.Name</span>
+            </span>
+            <span class="category-arrow">@(category.IsExpanded ? "▼" : "▶")</span>
+        </div>
+
+        @if (category.IsExpanded)
+        {
+            <ul class="nav-items">
+                @foreach (var tool in FilterTools(category.Tools))
+                {
+                    <li class="nav-item @(IsActive(tool.Route) ? "active" : "")">
+                        <NavLink class="nav-link" href="@tool.Route" Match="NavLinkMatch.All">
+                            @tool.Name
+                        </NavLink>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    // AI Accept [Added]: Navigation menu with search filter
+    [Parameter]
+    public string SearchKeyword { get; set; } = string.Empty;
+
+    private List<ToolCategory> Categories { get; set; } = new();
+
+    private IEnumerable<ToolCategory> FilteredCategories =>
+        Categories.Where(c => FilterTools(c.Tools).Any());
+
+    protected override void OnInitialized()
+    {
+        Categories = ToolCategoriesConfig.GetCategories();
+    }
+
+    private IEnumerable<ToolItem> FilterTools(List<ToolItem> tools)
+    {
+        if (string.IsNullOrWhiteSpace(SearchKeyword))
+            return tools;
+
+        return tools.Where(t =>
+            t.Name.Contains(SearchKeyword, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ToggleCategory(string key)
+    {
+        var category = Categories.FirstOrDefault(c => c.Key == key);
+        if (category != null)
+        {
+            category.IsExpanded = !category.IsExpanded;
+        }
+    }
+
+    private bool IsActive(string route)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        return $"/{relativePath}".Equals(route, StringComparison.OrdinalIgnoreCase) 
+            || (string.IsNullOrEmpty(relativePath) && route == "/");
+    }
+}

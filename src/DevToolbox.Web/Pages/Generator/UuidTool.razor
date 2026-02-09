@@ -1,0 +1,84 @@
+@page "/generator/uuid"
+@inject DevToolbox.Web.Services.IGeneratorService GeneratorService
+
+<PageTitle>UUID/GUID 生成 - DevToolbox</PageTitle>
+
+@* UUID生成工具 (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🎲 UUID/GUID 生成器</h1>
+        <p>生成全局唯一标识符</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span>生成选项</span>
+        </div>
+        <div class="card-body">
+            <div class="options-row">
+                <div class="option-item">
+                    <label>生成数量：</label>
+                    <input type="number" min="1" max="100" style="width: 80px;" class="form-control"
+                           @bind="Count" />
+                </div>
+                <div class="option-item">
+                    <label>格式：</label>
+                    <select class="form-control" style="width: auto;" @bind="Format">
+                        <option value="D">标准格式 (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)</option>
+                        <option value="N">无连字符 (xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)</option>
+                        <option value="B">带花括号 ({xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx})</option>
+                        <option value="P">带圆括号 ((xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx))</option>
+                    </select>
+                </div>
+            </div>
+            <div class="options-row" style="margin-top: 12px;">
+                <div class="option-item">
+                    <input type="checkbox" id="uppercase" @bind="Uppercase" />
+                    <label for="uppercase">大写</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Generate">生成</button>
+        <button class="btn btn-secondary" @onclick="CopyAll">复制全部</button>
+        <button class="btn btn-secondary" @onclick="Clear">清空</button>
+    </div>
+
+    @if (Results.Any())
+    {
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>生成结果 (@Results.Count)</span>
+            </div>
+            <div class="card-body">
+                <ul class="result-list">
+                    @foreach (var guid in Results)
+                    {
+                        <li class="result-item">
+                            <code>@(Uppercase ? guid.ToUpper() : guid)</code>
+                            <button class="btn btn-sm btn-secondary">复制</button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: UUID generator tool
+    private int Count { get; set; } = 5;
+    private string Format { get; set; } = "D";
+    private bool Uppercase { get; set; } = false;
+    private List<string> Results { get; set; } = new();
+
+    private void Generate()
+    {
+        Results = GeneratorService.GenerateMultipleGuids(Count, Format);
+    }
+
+    private void CopyAll() { }
+    private void Clear() => Results.Clear();
+}

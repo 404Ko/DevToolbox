@@ -1,0 +1,223 @@
+@page "/crypto/jwt"
+@using DevToolbox.Web.Services
+@inject IJwtService JwtService
+
+<PageTitle>JWT 解析 - DevToolbox</PageTitle>
+
+@* JWT parsing tool page (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🔑 JWT 解析</h1>
+        <p>解析 JSON Web Token，查看 Header、Payload 和签名信息</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span>JWT Token</span>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-secondary" @onclick="LoadSample">示例</button>
+                <button class="btn btn-sm btn-secondary" @onclick="Clear">清空</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control"
+                      @bind="InputToken"
+                      placeholder="粘贴 JWT Token（支持带 Bearer 前缀）..."></textarea>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Parse">🔍 解析 Token</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (Result is { IsValid: true })
+    {
+        @* Token status badge *@
+        <div class="jwt-status" style="margin-top: 20px;">
+            @if (Result.ExpiresAt.HasValue)
+            {
+                @if (Result.IsExpired)
+                {
+                    <span class="jwt-badge jwt-badge-expired">⛔ Token 已过期</span>
+                }
+                else
+                {
+                    <span class="jwt-badge jwt-badge-valid">✅ Token 有效</span>
+                }
+            }
+            @if (!string.IsNullOrEmpty(Result.Algorithm))
+            {
+                <span class="jwt-badge jwt-badge-info">🔐 @Result.Algorithm</span>
+            }
+            @if (!string.IsNullOrEmpty(Result.TokenType))
+            {
+                <span class="jwt-badge jwt-badge-info">📋 @Result.TokenType</span>
+            }
+        </div>
+
+        @* Header & Payload side by side *@
+        <div class="tool-content" style="margin-top: 20px;">
+            <div class="card">
+                <div class="card-header">
+                    <span>📄 Header</span>
+                </div>
+                <div class="card-body">
+                    <pre class="jwt-json">@Result.HeaderJson</pre>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <span>📦 Payload</span>
+                </div>
+                <div class="card-body">
+                    <pre class="jwt-json">@Result.PayloadJson</pre>
+                </div>
+            </div>
+        </div>
+
+        @* Timestamp info *@
+        @if (Result.IssuedAt.HasValue || Result.ExpiresAt.HasValue || Result.NotBefore.HasValue)
+        {
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <span>⏰ Token Timestamps</span>
+                </div>
+                <div class="card-body">
+                    <ul class="result-list">
+                        @if (Result.IssuedAt.HasValue)
+                        {
+                            <li class="result-item">
+                                <span><strong>iat (Issued At):</strong> @Result.IssuedAt.Value.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                            </li>
+                        }
+                        @if (Result.NotBefore.HasValue)
+                        {
+                            <li class="result-item">
+                                <span><strong>nbf (Not Before):</strong> @Result.NotBefore.Value.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                            </li>
+                        }
+                        @if (Result.ExpiresAt.HasValue)
+                        {
+                            <li class="result-item">
+                                <span>
+                                    <strong>exp (Expires At):</strong> @Result.ExpiresAt.Value.ToString("yyyy-MM-dd HH:mm:ss")
+                                    @if (Result.IsExpired)
+                                    {
+                                        <span style="color: var(--error-color); font-weight: 500;"> (已过期)</span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: var(--success-color); font-weight: 500;"> (未过期)</span>
+                                    }
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        }
+
+        @* Claims table *@
+        @if (Result.Claims.Any())
+        {
+            <div class="card" style="margin-top: 20px;">
+                <div class="card-header">
+                    <span>📋 All Claims (@Result.Claims.Count)</span>
+                </div>
+                <div class="card-body">
+                    <table class="jwt-claims-table">
+                        <thead>
+                            <tr>
+                                <th>Claim</th>
+                                <th>Value</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var claim in Result.Claims)
+                            {
+                                <tr>
+                                    <td><code>@claim.Key</code></td>
+                                    <td><div class="jwt-claim-value">@claim.Value</div></td>
+                                    <td class="jwt-claim-desc">@claim.Description</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+
+        @* Signature *@
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>✍️ Signature</span>
+            </div>
+            <div class="card-body">
+                <div class="jwt-signature">@Result.Signature</div>
+                <p style="color: var(--text-secondary); margin: 8px 0 0; font-size: 13px;">
+                    Note: Signature verification requires the secret key, which is not supported in client-side mode.
+                </p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: JWT parsing tool state and logic
+    private string InputToken { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private JwtParseResult? Result { get; set; }
+
+    /// <summary>
+    /// Parse the JWT token (AI Accept)
+    /// </summary>
+    private void Parse()
+    {
+        ErrorMessage = string.Empty;
+        Result = null;
+
+        if (string.IsNullOrWhiteSpace(InputToken))
+        {
+            ErrorMessage = "Please enter a JWT token first.";
+            return;
+        }
+
+        var parseResult = JwtService.Parse(InputToken);
+
+        if (!parseResult.IsValid)
+        {
+            ErrorMessage = parseResult.ErrorMessage;
+            return;
+        }
+
+        Result = parseResult;
+    }
+
+    /// <summary>
+    /// Load a sample JWT token for demo (AI Accept)
+    /// </summary>
+    private void LoadSample()
+    {
+        // AI Accept [Added]: A well-known sample JWT for testing (from jwt.io)
+        InputToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyLCJleHAiOjE5MTYyMzkwMjIsInJvbGUiOiJhZG1pbiIsImVtYWlsIjoiam9obkBleGFtcGxlLmNvbSJ9.jqPOXzPBYsFVqRJJJnNzuzhJclYqbFOJONkvFKs_cQ8";
+        ErrorMessage = string.Empty;
+        Result = null;
+    }
+
+    /// <summary>
+    /// Clear all inputs and results (AI Accept)
+    /// </summary>
+    private void Clear()
+    {
+        InputToken = string.Empty;
+        ErrorMessage = string.Empty;
+        Result = null;
+    }
+}

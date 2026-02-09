@@ -1,0 +1,42 @@
+@page "/"
+@using DevToolbox.Shared.Constants
+
+<PageTitle>DevToolbox - 开发者工具箱</PageTitle>
+
+@* 首页 (AI Accept) *@
+<div class="home-page">
+    <h1 class="home-title">🔧 DevToolbox</h1>
+    <p class="home-subtitle">开发者的在线工具箱，简单、快速、安全</p>
+
+    <div class="tool-grid">
+        @foreach (var category in Categories)
+        {
+            <div class="tool-category-card">
+                <h3 class="tool-category-title">
+                    <span>@category.Icon</span>
+                    <span>@category.Name</span>
+                </h3>
+                <ul class="tool-category-list">
+                    @foreach (var tool in category.Tools.Take(4))
+                    {
+                        <li><a href="@tool.Route">@tool.Name</a></li>
+                    }
+                    @if (category.Tools.Count > 4)
+                    {
+                        <li><a href="@category.Tools.First().Route">更多...</a></li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // AI Accept [Added]: Home page with tool categories
+    private List<DevToolbox.Shared.Models.ToolCategory> Categories { get; set; } = new();
+
+    protected override void OnInitialized()
+    {
+        Categories = ToolCategoriesConfig.GetCategories();
+    }
+}
