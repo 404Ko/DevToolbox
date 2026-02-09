@@ -1,0 +1,283 @@
+@page "/generator/random-string"
+@inject DevToolbox.Web.Services.IGeneratorService GeneratorService
+@inject IJSRuntime JS
+
+<PageTitle>随机字符串 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Random string generator tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🎲 随机字符串生成器</h1>
+        <p>生成指定长度和字符集的随机字符串，使用加密安全随机数</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span>⚙️ 生成选项</span>
+        </div>
+        <div class="card-body">
+            @* AI Accept [Added]: Length and count controls *@
+            <div class="options-row">
+                <div class="option-item">
+                    <label>字符串长度：</label>
+                    <input type="number" min="1" max="1024" style="width: 90px;" class="form-control"
+                           @bind="Length" />
+                </div>
+                <div class="option-item">
+                    <label>
+                        <input type="range" min="1" max="128" @bind="Length" @bind:event="oninput"
+                               style="width: 160px; vertical-align: middle;" />
+                        @Length 字符
+                    </label>
+                </div>
+                <div class="option-item">
+                    <label>生成数量：</label>
+                    <input type="number" min="1" max="100" style="width: 80px;" class="form-control"
+                           @bind="Count" />
+                </div>
+            </div>
+
+            @* AI Accept [Added]: Character set checkboxes *@
+            <div class="options-row" style="margin-top: 12px;">
+                <div class="option-item">
+                    <input type="checkbox" id="chk-upper" @bind="IncludeUpper" />
+                    <label for="chk-upper">大写字母 (A-Z)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="chk-lower" @bind="IncludeLower" />
+                    <label for="chk-lower">小写字母 (a-z)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="chk-numbers" @bind="IncludeNumbers" />
+                    <label for="chk-numbers">数字 (0-9)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="chk-special" @bind="IncludeSpecial" />
+                    <label for="chk-special">特殊字符 (!@@#$%...)</label>
+                </div>
+            </div>
+
+            @* AI Accept [Added]: Custom characters and separator *@
+            <div class="options-row" style="margin-top: 12px;">
+                <div class="option-item">
+                    <label>自定义字符集：</label>
+                    <input type="text" style="width: 240px;" class="form-control"
+                           placeholder="留空则使用上方勾选项"
+                           @bind="CustomChars" />
+                </div>
+                <div class="option-item">
+                    <label>分隔符：</label>
+                    <select class="form-control" style="width: auto;" @bind="Separator">
+                        <option value="">无</option>
+                        <option value="\n">换行</option>
+                        <option value=",">,（逗号）</option>
+                        <option value=";">;（分号）</option>
+                        <option value=" ">空格</option>
+                    </select>
+                </div>
+            </div>
+
+            @* AI Accept [Added]: Charset preview *@
+            <div style="margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                当前字符池：<code style="word-break: break-all;">@GetCharsetPreview()</code>
+                （共 @GetCharsetLength() 种字符）
+            </div>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Action buttons *@
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Generate">🎲 生成</button>
+        <button class="btn btn-secondary" @onclick="CopyAll">📋 复制全部</button>
+        <button class="btn btn-secondary" @onclick="Clear">🗑️ 清空</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+
+    @* AI Accept [Added]: Results display *@
+    @if (Results.Any())
+    {
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>生成结果（@Results.Count 条，每条 @Length 字符）</span>
+            </div>
+            <div class="card-body">
+                <ul class="result-list">
+                    @for (int i = 0; i < Results.Count; i++)
+                    {
+                        var index = i;
+                        <li class="result-item">
+                            <code style="flex: 1; overflow-x: auto; white-space: nowrap;">@Results[index]</code>
+                            <button class="btn btn-sm btn-secondary" @onclick="() => CopySingle(index)">复制</button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Random string generator page logic
+    private int Length { get; set; } = 16;
+    private int Count { get; set; } = 5;
+    private bool IncludeUpper { get; set; } = true;
+    private bool IncludeLower { get; set; } = true;
+    private bool IncludeNumbers { get; set; } = true;
+    private bool IncludeSpecial { get; set; } = false;
+    private string CustomChars { get; set; } = string.Empty;
+    private string Separator { get; set; } = "";
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string SuccessMessage { get; set; } = string.Empty;
+    private List<string> Results { get; set; } = new();
+
+    private void Generate()
+    {
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+
+        // AI Accept [Added]: Validate inputs
+        if (Length < 1 || Length > 1024)
+        {
+            ErrorMessage = "长度必须在 1 ~ 1024 之间";
+            return;
+        }
+        if (Count < 1 || Count > 100)
+        {
+            ErrorMessage = "数量必须在 1 ~ 100 之间";
+            return;
+        }
+
+        // AI Accept [Added]: Custom charset takes priority
+        if (!string.IsNullOrEmpty(CustomChars))
+        {
+            Results = GenerateFromCustomChars(Count, Length, CustomChars);
+        }
+        else
+        {
+            if (!IncludeUpper && !IncludeLower && !IncludeNumbers && !IncludeSpecial)
+            {
+                ErrorMessage = "至少选择一种字符类型，别全不选啊！";
+                return;
+            }
+            Results = GeneratorService.GenerateMultipleRandomStrings(
+                Count, Length, IncludeUpper, IncludeLower, IncludeNumbers, IncludeSpecial);
+        }
+    }
+
+    /// <summary>
+    /// Generate strings from custom character set (AI Accept)
+    /// </summary>
+    private List<string> GenerateFromCustomChars(int count, int length, string chars)
+    {
+        var distinctChars = new string(chars.Distinct().ToArray());
+        if (distinctChars.Length == 0)
+        {
+            ErrorMessage = "自定义字符集不能为空";
+            return new();
+        }
+
+        var results = new List<string>();
+        var rng = new Random();
+        for (int i = 0; i < count; i++)
+        {
+            var sb = new System.Text.StringBuilder(length);
+            for (int j = 0; j < length; j++)
+            {
+                sb.Append(distinctChars[rng.Next(distinctChars.Length)]);
+            }
+            results.Add(sb.ToString());
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Get charset preview string (AI Accept)
+    /// </summary>
+    private string GetCharsetPreview()
+    {
+        if (!string.IsNullOrEmpty(CustomChars))
+            return new string(CustomChars.Distinct().ToArray());
+
+        var sb = new System.Text.StringBuilder();
+        if (IncludeUpper) sb.Append("A-Z ");
+        if (IncludeLower) sb.Append("a-z ");
+        if (IncludeNumbers) sb.Append("0-9 ");
+        if (IncludeSpecial) sb.Append("!@#$%^&*()_+-=[]{}|;:,.<>?");
+        return sb.Length > 0 ? sb.ToString().TrimEnd() : "（未选择任何字符）";
+    }
+
+    /// <summary>
+    /// Get charset total character count (AI Accept)
+    /// </summary>
+    private int GetCharsetLength()
+    {
+        if (!string.IsNullOrEmpty(CustomChars))
+            return CustomChars.Distinct().Count();
+
+        int total = 0;
+        if (IncludeUpper) total += 26;
+        if (IncludeLower) total += 26;
+        if (IncludeNumbers) total += 10;
+        if (IncludeSpecial) total += 27;
+        return total;
+    }
+
+    /// <summary>
+    /// Copy all results to clipboard (AI Accept)
+    /// </summary>
+    private async Task CopyAll()
+    {
+        if (!Results.Any()) return;
+        var actualSep = Separator switch
+        {
+            "\\n" => "\n",
+            _ => Separator
+        };
+        var text = string.Join(string.IsNullOrEmpty(actualSep) ? "\n" : actualSep, Results);
+        await CopyToClipboard(text);
+        SuccessMessage = $"已复制全部 {Results.Count} 条结果";
+    }
+
+    /// <summary>
+    /// Copy single result to clipboard (AI Accept)
+    /// </summary>
+    private async Task CopySingle(int index)
+    {
+        if (index >= 0 && index < Results.Count)
+        {
+            await CopyToClipboard(Results[index]);
+            SuccessMessage = "已复制到剪贴板";
+        }
+    }
+
+    /// <summary>
+    /// Clipboard helper via JS interop (AI Accept)
+    /// </summary>
+    private async Task CopyToClipboard(string text)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        }
+        catch
+        {
+            ErrorMessage = "复制失败，浏览器可能不支持剪贴板 API";
+        }
+    }
+
+    private void Clear()
+    {
+        Results.Clear();
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+    }
+}
