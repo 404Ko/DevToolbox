@@ -1,4 +1,5 @@
 @page "/time/timestamp"
+@implements IDisposable
 @inject DevToolbox.Web.Services.ITimeService TimeService
 
 <PageTitle>时间戳转换 - DevToolbox</PageTitle>
@@ -100,15 +101,30 @@
 
     private string ErrorMessage { get; set; } = string.Empty;
 
+    // AI Accept [Added]: Timer for real-time timestamp refresh
+    private Timer? _timer;
+
     protected override void OnInitialized()
     {
         RefreshCurrent();
+        // AI Accept [Added]: Start 1-second interval timer for live update
+        _timer = new Timer(_ =>
+        {
+            RefreshCurrent();
+            InvokeAsync(StateHasChanged);
+        }, null, 1000, 1000);
     }
 
     private void RefreshCurrent()
     {
         CurrentSeconds = TimeService.GetTimestampSeconds();
         CurrentMilliseconds = TimeService.GetTimestampMilliseconds();
+    }
+
+    // AI Accept [Added]: Dispose timer to prevent memory leak
+    public void Dispose()
+    {
+        _timer?.Dispose();
     }
 
     private void ConvertToDateTime()
