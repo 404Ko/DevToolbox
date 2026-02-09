@@ -180,3 +180,49 @@ textarea.form-control { min-height: 200px; }
 .loading-progress { position: relative; display: block; width: 8rem; height: 8rem; margin: 20vh auto 1rem auto; }
 .loading-progress circle { fill: none; stroke: #e0e0e0; stroke-width: 0.6rem; transform-origin: 50% 50%; transform: rotate(-90deg); }
 .loading-progress circle:last-child { stroke: #1b6ec2; stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%; }
+
+/* AI Accept [Added]: Entity mapping validation styles */
+.mapping-divider {
+    display: flex;
+    align-items: center;
+    margin: 32px 0 24px 0;
+    gap: 16px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.mapping-divider::before,
+.mapping-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.mapping-summary {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.mapping-table th { white-space: nowrap; }
+.mapping-table td { font-size: 13px; }
+.mapping-table code {
+    background-color: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--accent-color);
+}
+
+.mapping-status-ok { background-color: transparent; }
+.mapping-status-fail { background-color: #fff5f5; }
+.mapping-status-fail:hover { background-color: #fee2e2 !important; }
+
+.mapping-reason-fail {
+    color: var(--error-color);
+    font-size: 12px;
+    max-width: 300px;
+    word-break: break-word;
+}

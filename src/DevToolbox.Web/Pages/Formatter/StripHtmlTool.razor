@@ -1,0 +1,227 @@
+@page "/formatter/strip-html"
+@using DevToolbox.Web.Services
+@inject IEncodingService EncodingService
+@inject IJSRuntime JS
+
+<PageTitle>去除HTML标签 - DevToolbox</PageTitle>
+
+@* HTML strip tool page (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🧹 去除HTML标签</h1>
+        <p>去除 HTML 标签，提取纯文本内容，支持保留换行</p>
+    </div>
+
+    <div class="tool-content">
+        <div class="card">
+            <div class="card-header">
+                <span>HTML 输入</span>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-secondary" @onclick="LoadSample">示例</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="Clear">清空</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="InputText"
+                          placeholder="粘贴 HTML 内容..."></textarea>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <span>纯文本输出</span>
+                <button class="btn btn-sm btn-primary" @onclick="CopyOutput">📋 复制</button>
+            </div>
+            <div class="card-body">
+                <textarea class="form-control"
+                          @bind="OutputText"
+                          readonly
+                          placeholder="结果将显示在这里..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Options panel *@
+    <div class="options-panel" style="margin-top: 16px;">
+        <div class="options-title">选项</div>
+        <div class="options-row">
+            <label class="option-item">
+                <input type="checkbox" @bind="KeepNewlines" />
+                <span>保留块级标签换行（br/p/div/h1~h6/li 等）</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="StripTags">🧹 去除标签</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+
+    @* AI Accept [Added]: Statistics section *@
+    @if (Stats != null && Stats.TagCount > 0)
+    {
+        <div class="mapping-divider">
+            <span>📊 统计信息</span>
+        </div>
+
+        <div class="mapping-summary">
+            <span class="jwt-badge jwt-badge-info">
+                原始长度 @Stats.OriginalLength 字符
+            </span>
+            <span class="jwt-badge jwt-badge-valid">
+                提取文本 @Stats.StrippedLength 字符
+            </span>
+            <span class="jwt-badge jwt-badge-expired">
+                去除 @Stats.RemovedChars 字符
+            </span>
+            <span class="jwt-badge jwt-badge-info">
+                共 @Stats.TagCount 个标签
+            </span>
+        </div>
+
+        @if (Stats.TagBreakdown.Count > 0)
+        {
+            <div class="card" style="margin-top: 16px;">
+                <div class="card-header">
+                    <span>标签分布</span>
+                </div>
+                <div class="card-body" style="overflow-x: auto;">
+                    <table class="jwt-claims-table">
+                        <thead>
+                            <tr>
+                                <th>标签名</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var tag in Stats.TagBreakdown.OrderByDescending(t => t.Value))
+                            {
+                                <tr>
+                                    <td><code>&lt;@tag.Key&gt;</code></td>
+                                    <td>@tag.Value</td>
+                                    <td>@((tag.Value * 100.0 / Stats.TagCount).ToString("F1"))%</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Strip HTML tool state
+    private string InputText { get; set; } = string.Empty;
+    private string OutputText { get; set; } = string.Empty;
+    private string ErrorMessage { get; set; } = string.Empty;
+    private string SuccessMessage { get; set; } = string.Empty;
+    private bool KeepNewlines { get; set; } = false;
+    private HtmlStripStats? Stats { get; set; }
+
+    /// <summary>
+    /// Strip HTML tags from input (AI Accept)
+    /// </summary>
+    private void StripTags()
+    {
+        ClearMessages();
+        Stats = null;
+
+        if (string.IsNullOrWhiteSpace(InputText))
+        {
+            ErrorMessage = "请输入 HTML 内容。";
+            return;
+        }
+
+        try
+        {
+            // AI Accept [Added]: Choose strip mode based on option
+            OutputText = KeepNewlines
+                ? EncodingService.StripHtmlTagsKeepNewlines(InputText)
+                : EncodingService.StripHtmlTags(InputText);
+
+            Stats = EncodingService.GetHtmlStats(InputText);
+            SuccessMessage = $"去除成功，共移除 {Stats.TagCount} 个标签。";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"处理失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Copy output to clipboard via JS interop (AI Accept)
+    /// </summary>
+    private async Task CopyOutput()
+    {
+        ClearMessages();
+
+        if (string.IsNullOrWhiteSpace(OutputText))
+        {
+            ErrorMessage = "没有可复制的内容。";
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", OutputText);
+            SuccessMessage = "已复制到剪贴板!";
+        }
+        catch
+        {
+            ErrorMessage = "剪贴板访问被拒绝，请手动复制。";
+        }
+    }
+
+    /// <summary>
+    /// Load sample HTML (AI Accept)
+    /// </summary>
+    private void LoadSample()
+    {
+        InputText = @"<!DOCTYPE html>
+<html>
+<head><title>示例页面</title></head>
+<body>
+    <h1>欢迎使用 DevToolbox</h1>
+    <p>这是一个<strong>开发者工具箱</strong>，提供多种实用工具。</p>
+    <ul>
+        <li>编码转换</li>
+        <li>加密解密</li>
+        <li>格式化工具</li>
+    </ul>
+    <div class=""footer"">
+        <p>版权所有 &copy; 2024 DevToolbox &amp; Contributors</p>
+        <a href=""https://example.com"">访问官网</a>
+    </div>
+</body>
+</html>";
+        OutputText = string.Empty;
+        Stats = null;
+        ClearMessages();
+    }
+
+    private void Clear()
+    {
+        InputText = string.Empty;
+        OutputText = string.Empty;
+        Stats = null;
+        ClearMessages();
+    }
+
+    private void ClearMessages()
+    {
+        ErrorMessage = string.Empty;
+        SuccessMessage = string.Empty;
+    }
+}

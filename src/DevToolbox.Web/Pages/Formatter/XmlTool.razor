@@ -1,15 +1,15 @@
-@page "/formatter/json"
+@page "/formatter/xml"
 @using DevToolbox.Web.Services
 @inject IFormatterService FormatterService
 @inject IJSRuntime JS
 
-<PageTitle>JSON 格式化 - DevToolbox</PageTitle>
+<PageTitle>XML 格式化 - DevToolbox</PageTitle>
 
-@* JSON formatter tool page (AI Accept) *@
+@* XML formatter tool page (AI Accept) *@
 <div class="tool-page">
     <div class="tool-header">
-        <h1>📝 JSON 格式化</h1>
-        <p>JSON 格式化美化、压缩，支持语法校验</p>
+        <h1>📄 XML 格式化</h1>
+        <p>XML 格式化美化、压缩，支持语法校验</p>
     </div>
 
     <div class="tool-content">
@@ -24,7 +24,7 @@
             <div class="card-body">
                 <textarea class="form-control"
                           @bind="InputText"
-                          placeholder="粘贴 JSON 内容..."></textarea>
+                          placeholder="粘贴 XML 内容..."></textarea>
             </div>
         </div>
 
@@ -59,19 +59,19 @@
 
     @* AI Accept [Added]: Entity mapping validation section *@
     <div class="mapping-divider">
-        <span>📋 JSON → C# 实体映射验证</span>
+        <span>📋 XML → C# 实体映射验证</span>
     </div>
 
     <div class="tool-content">
         <div class="card">
             <div class="card-header">
-                <span>JSON 数据</span>
+                <span>XML 数据</span>
                 <button class="btn btn-sm btn-secondary" @onclick="LoadMappingSample">示例</button>
             </div>
             <div class="card-body">
                 <textarea class="form-control"
-                          @bind="MappingJsonText"
-                          placeholder="粘贴 JSON 数据..."></textarea>
+                          @bind="MappingXmlText"
+                          placeholder="粘贴 XML 数据..."></textarea>
             </div>
         </div>
 
@@ -90,13 +90,13 @@
 
     <div class="btn-group" style="margin-top: 20px; justify-content: center; align-items: center;">
         <label class="option-item">
-            <input type="radio" name="mappingMode" value="false"
+            <input type="radio" name="xmlMappingMode" value="false"
                    checked="@(!MappingIsCollection)"
                    @onchange="@(() => MappingIsCollection = false)" />
             <span>对象</span>
         </label>
         <label class="option-item">
-            <input type="radio" name="mappingMode" value="true"
+            <input type="radio" name="xmlMappingMode" value="true"
                    checked="@MappingIsCollection"
                    @onchange="@(() => MappingIsCollection = true)" />
             <span>集合</span>
@@ -138,9 +138,9 @@
                             <th style="width: 60px;">状态</th>
                             <th>属性名</th>
                             <th>C# 类型</th>
-                            <th>JSON 字段</th>
-                            <th>JSON 值</th>
-                            <th>JSON 类型</th>
+                            <th>XML 字段</th>
+                            <th>XML 值</th>
+                            <th>XML 类型</th>
                             <th>原因</th>
                         </tr>
                     </thead>
@@ -165,21 +165,21 @@
 </div>
 
 @code {
-    // AI Accept [Added]: JSON formatter tool state
+    // AI Accept [Added]: XML formatter tool state
     private string InputText { get; set; } = string.Empty;
     private string OutputText { get; set; } = string.Empty;
     private string ErrorMessage { get; set; } = string.Empty;
     private string SuccessMessage { get; set; } = string.Empty;
 
     // AI Accept [Added]: Entity mapping state
-    private string MappingJsonText { get; set; } = string.Empty;
+    private string MappingXmlText { get; set; } = string.Empty;
     private string EntityDefText { get; set; } = string.Empty;
     private bool MappingIsCollection { get; set; } = false;
     private string MappingErrorMessage { get; set; } = string.Empty;
     private EntityMappingResult? MappingResult { get; set; }
 
     /// <summary>
-    /// Format JSON with indentation (AI Accept)
+    /// Format XML with indentation (AI Accept)
     /// </summary>
     private void Format()
     {
@@ -187,27 +187,27 @@
 
         if (string.IsNullOrWhiteSpace(InputText))
         {
-            ErrorMessage = "Please enter JSON content.";
+            ErrorMessage = "请输入 XML 内容。";
             return;
         }
 
         try
         {
-            OutputText = FormatterService.JsonFormat(InputText);
-            SuccessMessage = "Formatted successfully.";
+            OutputText = FormatterService.XmlFormat(InputText);
+            SuccessMessage = "格式化成功。";
         }
-        catch (System.Text.Json.JsonException ex)
+        catch (System.Xml.XmlException ex)
         {
-            ErrorMessage = $"Invalid JSON: {ex.Message}";
+            ErrorMessage = $"无效的 XML: {ex.Message}";
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Format failed: {ex.Message}";
+            ErrorMessage = $"格式化失败: {ex.Message}";
         }
     }
 
     /// <summary>
-    /// Compress JSON (AI Accept)
+    /// Compress XML (AI Accept)
     /// </summary>
     private void Compress()
     {
@@ -215,22 +215,22 @@
 
         if (string.IsNullOrWhiteSpace(InputText))
         {
-            ErrorMessage = "Please enter JSON content.";
+            ErrorMessage = "请输入 XML 内容。";
             return;
         }
 
         try
         {
-            OutputText = FormatterService.JsonCompress(InputText);
-            SuccessMessage = "Compressed successfully.";
+            OutputText = FormatterService.XmlCompress(InputText);
+            SuccessMessage = "压缩成功。";
         }
-        catch (System.Text.Json.JsonException ex)
+        catch (System.Xml.XmlException ex)
         {
-            ErrorMessage = $"Invalid JSON: {ex.Message}";
+            ErrorMessage = $"无效的 XML: {ex.Message}";
         }
         catch (Exception ex)
         {
-            ErrorMessage = $"Compress failed: {ex.Message}";
+            ErrorMessage = $"压缩失败: {ex.Message}";
         }
     }
 
@@ -243,27 +243,27 @@
 
         if (string.IsNullOrWhiteSpace(OutputText))
         {
-            ErrorMessage = "Nothing to copy.";
+            ErrorMessage = "没有可复制的内容。";
             return;
         }
 
         try
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", OutputText);
-            SuccessMessage = "Copied to clipboard!";
+            SuccessMessage = "已复制到剪贴板!";
         }
         catch
         {
-            ErrorMessage = "Clipboard access denied. Please copy manually.";
+            ErrorMessage = "剪贴板访问被拒绝，请手动复制。";
         }
     }
 
     /// <summary>
-    /// Load sample JSON (AI Accept)
+    /// Load sample XML (AI Accept)
     /// </summary>
     private void LoadSample()
     {
-        InputText = "{\"name\":\"DevToolbox\",\"version\":\"1.0.0\",\"features\":[\"encoding\",\"crypto\",\"formatter\"],\"config\":{\"theme\":\"light\",\"language\":\"zh-CN\",\"maxItems\":100}}";
+        InputText = "<root><name>DevToolbox</name><version>1.0.0</version><features><item>encoding</item><item>crypto</item><item>formatter</item></features><config theme=\"light\" language=\"zh-CN\" maxItems=\"100\" /></root>";
         OutputText = string.Empty;
         ClearMessages();
     }
@@ -282,16 +282,16 @@
     }
 
     /// <summary>
-    /// Validate JSON to C# entity mapping (AI Accept)
+    /// Validate XML to C# entity mapping (AI Accept)
     /// </summary>
     private void ValidateMapping()
     {
         MappingErrorMessage = string.Empty;
         MappingResult = null;
 
-        if (string.IsNullOrWhiteSpace(MappingJsonText))
+        if (string.IsNullOrWhiteSpace(MappingXmlText))
         {
-            MappingErrorMessage = "请输入 JSON 数据。";
+            MappingErrorMessage = "请输入 XML 数据。";
             return;
         }
 
@@ -303,7 +303,7 @@
 
         try
         {
-            MappingResult = FormatterService.MapJsonToEntity(MappingJsonText, EntityDefText, MappingIsCollection);
+            MappingResult = FormatterService.MapXmlToEntity(MappingXmlText, EntityDefText, MappingIsCollection);
 
             if (!string.IsNullOrEmpty(MappingResult.ErrorMessage))
             {
@@ -317,21 +317,27 @@
     }
 
     /// <summary>
-    /// Load sample JSON for mapping validation (AI Accept)
+    /// Load sample XML for mapping validation (AI Accept)
     /// </summary>
     private void LoadMappingSample()
     {
-        MappingJsonText = @"{
-    ""id"": 1,
-    ""name"": ""张三"",
-    ""age"": 28,
-    ""email"": ""zhangsan@example.com"",
-    ""isActive"": true,
-    ""score"": 95.5,
-    ""createdAt"": ""2024-01-15T10:30:00"",
-    ""tags"": [""dev"", ""test""],
-    ""address"": { ""city"": ""北京"", ""zip"": ""100000"" }
-}";
+        MappingXmlText = @"<User>
+  <Id>1</Id>
+  <Name>张三</Name>
+  <Age>28</Age>
+  <Email>zhangsan@example.com</Email>
+  <IsActive>true</IsActive>
+  <Score>95.5</Score>
+  <CreatedAt>2024-01-15T10:30:00</CreatedAt>
+  <Tags>
+    <string>dev</string>
+    <string>test</string>
+  </Tags>
+  <Address>
+    <City>北京</City>
+    <Zip>100000</Zip>
+  </Address>
+</User>";
         MappingErrorMessage = string.Empty;
         MappingResult = null;
     }
