@@ -1,0 +1,189 @@
+@page "/other/color"
+@inject DevToolbox.Web.Services.IOtherToolService ToolService
+
+<PageTitle>颜色转换 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Color converter tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🎨 颜色转换</h1>
+        <p>在 HEX、RGB、HSL 之间互转，支持实时预览</p>
+    </div>
+
+    <div class="tool-content">
+        @* AI Accept [Added]: Input card *@
+        <div class="card">
+            <div class="card-header">
+                <span>📥 输入颜色</span>
+                <select class="form-control" style="width: auto; padding: 4px 8px; font-size: 13px;" @bind="InputMode">
+                    <option value="hex">HEX</option>
+                    <option value="rgb">RGB</option>
+                    <option value="hsl">HSL</option>
+                </select>
+            </div>
+            <div class="card-body">
+                @if (InputMode == "hex")
+                {
+                    <div class="form-group">
+                        <label class="form-label">HEX 值</label>
+                        <input type="text" class="form-control" style="font-family: 'Consolas', monospace;"
+                               placeholder="#FF5733 或 F53"
+                               @bind="HexInput" />
+                    </div>
+                }
+                else if (InputMode == "rgb")
+                {
+                    <div class="color-input-row">
+                        <div class="color-input-item">
+                            <label class="form-label">R (0-255)</label>
+                            <input type="number" min="0" max="255" class="form-control" @bind="RInput" />
+                        </div>
+                        <div class="color-input-item">
+                            <label class="form-label">G (0-255)</label>
+                            <input type="number" min="0" max="255" class="form-control" @bind="GInput" />
+                        </div>
+                        <div class="color-input-item">
+                            <label class="form-label">B (0-255)</label>
+                            <input type="number" min="0" max="255" class="form-control" @bind="BInput" />
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="color-input-row">
+                        <div class="color-input-item">
+                            <label class="form-label">H (0-360°)</label>
+                            <input type="number" min="0" max="360" step="0.1" class="form-control" @bind="HInput" />
+                        </div>
+                        <div class="color-input-item">
+                            <label class="form-label">S (0-100%)</label>
+                            <input type="number" min="0" max="100" step="0.1" class="form-control" @bind="SInput" />
+                        </div>
+                        <div class="color-input-item">
+                            <label class="form-label">L (0-100%)</label>
+                            <input type="number" min="0" max="100" step="0.1" class="form-control" @bind="LInput" />
+                        </div>
+                    </div>
+                }
+
+                <div class="btn-group" style="margin-top: 16px;">
+                    <button class="btn btn-primary" @onclick="ConvertColor">🎨 转换</button>
+                    <button class="btn btn-secondary" @onclick="Clear">🗑️ 清空</button>
+                </div>
+            </div>
+        </div>
+
+        @* AI Accept [Added]: Result card with preview *@
+        <div class="card">
+            <div class="card-header">
+                <span>📊 转换结果</span>
+            </div>
+            <div class="card-body">
+                @if (!string.IsNullOrEmpty(Result?.ErrorMessage))
+                {
+                    <div class="alert alert-danger" style="margin-top: 0;">@Result.ErrorMessage</div>
+                }
+                else if (Result is { Success: true })
+                {
+                    @* AI Accept [Added]: Color preview block *@
+                    <div class="color-preview" style="background-color: @Result.Hex;"></div>
+
+                    <ul class="result-list" style="margin-top: 16px;">
+                        <li class="result-item">
+                            <span>HEX</span>
+                            <code>@Result.Hex</code>
+                        </li>
+                        <li class="result-item">
+                            <span>RGB</span>
+                            <code>@Result.Rgb</code>
+                        </li>
+                        <li class="result-item">
+                            <span>HSL</span>
+                            <code>@Result.Hsl</code>
+                        </li>
+                        <li class="result-item">
+                            <span>R, G, B</span>
+                            <code>@Result.R, @Result.G, @Result.B</code>
+                        </li>
+                        <li class="result-item">
+                            <span>CSS</span>
+                            <code>color: @Result.Hex;</code>
+                        </li>
+                    </ul>
+                }
+                else
+                {
+                    <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                        输入颜色值后点击转换
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Common colors reference *@
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+            <span>🎯 常用颜色</span>
+        </div>
+        <div class="card-body">
+            <div class="color-palette">
+                @foreach (var c in CommonColors)
+                {
+                    <div class="color-swatch" @onclick="() => QuickSelect(c.Hex)" title="@c.Name @c.Hex">
+                        <div class="color-swatch-block" style="background-color: @c.Hex;"></div>
+                        <span class="color-swatch-label">@c.Name</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // AI Accept [Added]: Color converter page state
+    private string InputMode { get; set; } = "hex";
+    private string HexInput { get; set; } = string.Empty;
+    private int RInput { get; set; } = 255;
+    private int GInput { get; set; } = 87;
+    private int BInput { get; set; } = 51;
+    private double HInput { get; set; } = 0;
+    private double SInput { get; set; } = 100;
+    private double LInput { get; set; } = 50;
+    private DevToolbox.Web.Services.ColorConvertResult? Result { get; set; }
+
+    private void ConvertColor()
+    {
+        Result = InputMode switch
+        {
+            "hex" => ToolService.ParseHex(HexInput),
+            "rgb" => ToolService.ParseRgb(RInput, GInput, BInput),
+            "hsl" => ToolService.ParseHsl(HInput, SInput, LInput),
+            _ => null
+        };
+    }
+
+    private void QuickSelect(string hex)
+    {
+        InputMode = "hex";
+        HexInput = hex;
+        Result = ToolService.ParseHex(hex);
+    }
+
+    private void Clear()
+    {
+        HexInput = string.Empty;
+        RInput = 0; GInput = 0; BInput = 0;
+        HInput = 0; SInput = 0; LInput = 0;
+        Result = null;
+    }
+
+    // AI Accept [Added]: Common color presets
+    private static readonly List<(string Name, string Hex)> CommonColors = new()
+    {
+        ("红色", "#FF0000"), ("橙色", "#FF8C00"), ("黄色", "#FFD700"),
+        ("绿色", "#00C853"), ("青色", "#00BCD4"), ("蓝色", "#2196F3"),
+        ("紫色", "#9C27B0"), ("粉色", "#E91E63"), ("白色", "#FFFFFF"),
+        ("灰色", "#9E9E9E"), ("深灰", "#424242"), ("黑色", "#000000"),
+    };
+}

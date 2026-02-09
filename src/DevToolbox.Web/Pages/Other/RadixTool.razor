@@ -1,0 +1,156 @@
+@page "/other/radix"
+@inject DevToolbox.Web.Services.IOtherToolService ToolService
+
+<PageTitle>进制转换 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Radix converter tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🔢 进制转换</h1>
+        <p>在二进制、八进制、十进制、十六进制之间快速转换，支持 0x/0b/0o 前缀</p>
+    </div>
+
+    @* AI Accept [Added]: Input section *@
+    <div class="card">
+        <div class="card-header">
+            <span>📥 输入</span>
+        </div>
+        <div class="card-body">
+            <div class="options-row" style="margin-bottom: 12px;">
+                <div class="option-item">
+                    <label>输入进制：</label>
+                    <select class="form-control" style="width: auto;" @bind="FromBase">
+                        <option value="2">二进制 (Base-2)</option>
+                        <option value="8">八进制 (Base-8)</option>
+                        <option value="10">十进制 (Base-10)</option>
+                        <option value="16">十六进制 (Base-16)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" class="form-control" style="font-family: 'Consolas', monospace; font-size: 16px;"
+                       placeholder="@GetPlaceholder()"
+                       @bind="InputValue" @bind:event="oninput" />
+            </div>
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="Convert">🔄 转换</button>
+        <button class="btn btn-secondary" @onclick="Clear">🗑️ 清空</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Result?.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Result.ErrorMessage</div>
+    }
+
+    @* AI Accept [Added]: Conversion results *@
+    @if (Result is { Success: true })
+    {
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>📊 转换结果</span>
+            </div>
+            <div class="card-body">
+                <div class="radix-result-grid">
+                    <div class="radix-result-item">
+                        <div class="radix-label">二进制 (BIN)</div>
+                        <div class="radix-value">
+                            <code>0b@FormatBinary(Result.Binary)</code>
+                        </div>
+                    </div>
+                    <div class="radix-result-item">
+                        <div class="radix-label">八进制 (OCT)</div>
+                        <div class="radix-value">
+                            <code>0o@Result.Octal</code>
+                        </div>
+                    </div>
+                    <div class="radix-result-item">
+                        <div class="radix-label">十进制 (DEC)</div>
+                        <div class="radix-value">
+                            <code>@Result.Decimal</code>
+                        </div>
+                    </div>
+                    <div class="radix-result-item">
+                        <div class="radix-label">十六进制 (HEX)</div>
+                        <div class="radix-value">
+                            <code>0x@Result.Hex</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* AI Accept [Added]: Quick reference *@
+    <div class="card" style="margin-top: 20px;">
+        <div class="card-header">
+            <span>📋 常用值速查</span>
+        </div>
+        <div class="card-body">
+            <table class="jwt-claims-table">
+                <thead>
+                    <tr>
+                        <th>DEC</th>
+                        <th>HEX</th>
+                        <th>OCT</th>
+                        <th>BIN</th>
+                        <th>说明</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>255</td><td>FF</td><td>377</td><td>11111111</td><td>1 byte max</td></tr>
+                    <tr><td>256</td><td>100</td><td>400</td><td>100000000</td><td>2⁸</td></tr>
+                    <tr><td>1024</td><td>400</td><td>2000</td><td>10000000000</td><td>1 KB</td></tr>
+                    <tr><td>65535</td><td>FFFF</td><td>177777</td><td>1111111111111111</td><td>2 bytes max</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    // AI Accept [Added]: Radix converter page state
+    private string InputValue { get; set; } = string.Empty;
+    private int FromBase { get; set; } = 10;
+    private DevToolbox.Web.Services.RadixConvertResult? Result { get; set; }
+
+    private void Convert()
+    {
+        if (string.IsNullOrWhiteSpace(InputValue))
+        {
+            Result = new DevToolbox.Web.Services.RadixConvertResult { ErrorMessage = "请输入数值" };
+            return;
+        }
+        Result = ToolService.ConvertRadix(InputValue, FromBase);
+    }
+
+    private string GetPlaceholder() => FromBase switch
+    {
+        2 => "例如: 10110101 或 0b10110101",
+        8 => "例如: 377 或 0o377",
+        16 => "例如: FF 或 0xFF",
+        _ => "例如: 255"
+    };
+
+    /// <summary>
+    /// Format binary with 4-bit grouping for readability (AI Accept)
+    /// </summary>
+    private string FormatBinary(string bin)
+    {
+        if (bin.Length <= 4) return bin;
+        // Pad to multiple of 4
+        var padded = bin.PadLeft((int)Math.Ceiling(bin.Length / 4.0) * 4, '0');
+        var groups = new List<string>();
+        for (int i = 0; i < padded.Length; i += 4)
+            groups.Add(padded.Substring(i, 4));
+        return string.Join(" ", groups);
+    }
+
+    private void Clear()
+    {
+        InputValue = string.Empty;
+        Result = null;
+    }
+}

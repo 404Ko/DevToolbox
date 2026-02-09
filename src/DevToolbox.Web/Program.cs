@@ -16,5 +16,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IFormatterService, FormatterService>();
 builder.Services.AddScoped<ITimeService, TimeService>();
 builder.Services.AddScoped<IGeneratorService, GeneratorService>();
+// AI Accept [Added]: Register other tools service
+builder.Services.AddScoped<IOtherToolService, OtherToolService>();
 
 await builder.Build().RunAsync();

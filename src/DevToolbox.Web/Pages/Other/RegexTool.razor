@@ -1,0 +1,184 @@
+@page "/other/regex"
+@inject DevToolbox.Web.Services.IOtherToolService ToolService
+
+<PageTitle>正则测试 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Regex tester tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>🔍 正则表达式测试</h1>
+        <p>实时测试正则表达式匹配、分组捕获和替换</p>
+    </div>
+
+    @* AI Accept [Added]: Pattern and flags *@
+    <div class="card">
+        <div class="card-header">
+            <span>⚙️ 正则配置</span>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label class="form-label">正则表达式</label>
+                <input type="text" class="form-control" style="font-family: 'Consolas', monospace;"
+                       placeholder="例如: (\d{4})-(\d{2})-(\d{2})"
+                       @bind="Pattern" @bind:event="oninput" />
+            </div>
+
+            <div class="options-row">
+                <div class="option-item">
+                    <input type="checkbox" id="rx-ignore" @bind="IgnoreCase" />
+                    <label for="rx-ignore">忽略大小写 (i)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="rx-multi" @bind="Multiline" />
+                    <label for="rx-multi">多行模式 (m)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="rx-single" @bind="Singleline" />
+                    <label for="rx-single">单行模式 (s)</label>
+                </div>
+                <div class="option-item">
+                    <input type="checkbox" id="rx-global" @bind="Global" />
+                    <label for="rx-global">全局匹配 (g)</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Test input *@
+    <div class="card" style="margin-top: 16px;">
+        <div class="card-header">
+            <span>📝 测试文本</span>
+        </div>
+        <div class="card-body">
+            <textarea class="form-control" rows="6" style="min-height: 120px;"
+                      placeholder="输入要匹配的文本..."
+                      @bind="TestInput" @bind:event="oninput"></textarea>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Optional replacement *@
+    <div class="card" style="margin-top: 16px;">
+        <div class="card-header">
+            <span>🔄 替换（可选）</span>
+        </div>
+        <div class="card-body">
+            <input type="text" class="form-control" style="font-family: 'Consolas', monospace;"
+                   placeholder="替换字符串，支持 $1 $2 引用分组（留空则仅匹配）"
+                   @bind="Replacement" @bind:event="oninput" />
+        </div>
+    </div>
+
+    <div class="btn-group" style="margin-top: 20px; justify-content: center;">
+        <button class="btn btn-primary" @onclick="RunTest">🔍 测试匹配</button>
+        <button class="btn btn-secondary" @onclick="Clear">🗑️ 清空</button>
+        <button class="btn btn-secondary" @onclick="LoadExample">📋 加载示例</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Result?.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Result.ErrorMessage</div>
+    }
+
+    @* AI Accept [Added]: Match results *@
+    @if (Result != null && Result.ErrorMessage == null)
+    {
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <span>匹配结果</span>
+                <span class="jwt-badge @(Result.MatchCount > 0 ? "jwt-badge-valid" : "jwt-badge-expired")">
+                    @(Result.MatchCount > 0 ? $"✅ {Result.MatchCount} 个匹配" : "❌ 无匹配")
+                </span>
+            </div>
+            <div class="card-body">
+                @if (Result.Matches.Any())
+                {
+                    <table class="jwt-claims-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">#</th>
+                                <th style="width: 70px;">位置</th>
+                                <th>匹配内容</th>
+                                <th>分组</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < Result.Matches.Count; i++)
+                            {
+                                var m = Result.Matches[i];
+                                <tr>
+                                    <td>@(i + 1)</td>
+                                    <td><code>@m.Index</code></td>
+                                    <td><code class="jwt-claim-value">@m.Value</code></td>
+                                    <td>
+                                        @if (m.Groups.Any())
+                                        {
+                                            @foreach (var g in m.Groups)
+                                            {
+                                                <div style="font-size: 12px;">
+                                                    <span style="color: var(--text-secondary);">@g.Name:</span>
+                                                    <code>@g.Value</code>
+                                                </div>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span style="color: var(--text-secondary); font-size: 12px;">—</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @* AI Accept [Added]: Replacement result *@
+                @if (Result.ReplaceResult != null)
+                {
+                    <div style="margin-top: 16px;">
+                        <label class="form-label">替换结果</label>
+                        <pre class="jwt-json">@Result.ReplaceResult</pre>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Regex tester page state
+    private string Pattern { get; set; } = string.Empty;
+    private string TestInput { get; set; } = string.Empty;
+    private string Replacement { get; set; } = string.Empty;
+    private bool IgnoreCase { get; set; } = false;
+    private bool Multiline { get; set; } = false;
+    private bool Singleline { get; set; } = false;
+    private bool Global { get; set; } = true;
+    private DevToolbox.Web.Services.RegexTestResult? Result { get; set; }
+
+    private void RunTest()
+    {
+        if (string.IsNullOrEmpty(Pattern))
+        {
+            Result = new DevToolbox.Web.Services.RegexTestResult { ErrorMessage = "请输入正则表达式" };
+            return;
+        }
+        var replacement = string.IsNullOrEmpty(Replacement) ? null : Replacement;
+        Result = ToolService.TestRegex(Pattern, TestInput, IgnoreCase, Multiline, Singleline, Global, replacement);
+    }
+
+    private void LoadExample()
+    {
+        Pattern = @"(\d{4})-(\d{2})-(\d{2})";
+        TestInput = "Today is 2024-01-15, yesterday was 2024-01-14.\nEvent date: 2023-12-25";
+        Replacement = "$2/$3/$1";
+        Global = true;
+    }
+
+    private void Clear()
+    {
+        Pattern = string.Empty;
+        TestInput = string.Empty;
+        Replacement = string.Empty;
+        Result = null;
+    }
+}

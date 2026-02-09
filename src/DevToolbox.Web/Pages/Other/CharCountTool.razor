@@ -1,0 +1,197 @@
+@page "/other/char-count"
+@inject DevToolbox.Web.Services.IOtherToolService ToolService
+
+<PageTitle>字符统计 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Character statistics tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>📊 字符统计</h1>
+        <p>统计文本字符数、单词数、行数、字节大小、字符频率分布</p>
+    </div>
+
+    @* AI Accept [Added]: Input card *@
+    <div class="card">
+        <div class="card-header">
+            <span>📝 输入文本</span>
+            @if (Stats != null)
+            {
+                <span style="font-size: 12px; color: var(--text-secondary);">
+                    @Stats.TotalChars 字符 · @Stats.WordCount 词 · @Stats.LineCount 行
+                </span>
+            }
+        </div>
+        <div class="card-body">
+            <textarea class="form-control" rows="8" style="min-height: 160px;"
+                      placeholder="在此输入或粘贴文本..."
+                      @bind="InputText" @bind:event="oninput"
+                      @onfocus="Analyze" @onblur="Analyze"></textarea>
+            <div class="btn-group" style="margin-top: 12px;">
+                <button class="btn btn-primary" @onclick="Analyze">📊 统计分析</button>
+                <button class="btn btn-secondary" @onclick="Clear">🗑️ 清空</button>
+                <button class="btn btn-secondary" @onclick="LoadSample">📋 加载示例</button>
+            </div>
+        </div>
+    </div>
+
+    @* AI Accept [Added]: Statistics results *@
+    @if (Stats != null && Stats.TotalChars > 0)
+    {
+        @* AI Accept [Added]: Overview stats cards *@
+        <div class="char-stats-grid" style="margin-top: 20px;">
+            <div class="char-stat-card">
+                <div class="char-stat-num">@Stats.TotalChars</div>
+                <div class="char-stat-label">总字符数</div>
+            </div>
+            <div class="char-stat-card">
+                <div class="char-stat-num">@Stats.TotalCharsNoSpaces</div>
+                <div class="char-stat-label">字符(不含空格)</div>
+            </div>
+            <div class="char-stat-card">
+                <div class="char-stat-num">@Stats.WordCount</div>
+                <div class="char-stat-label">单词/词语</div>
+            </div>
+            <div class="char-stat-card">
+                <div class="char-stat-num">@Stats.LineCount</div>
+                <div class="char-stat-label">行数</div>
+            </div>
+            <div class="char-stat-card">
+                <div class="char-stat-num">@FormatBytes(Stats.ByteCountUtf8)</div>
+                <div class="char-stat-label">UTF-8 大小</div>
+            </div>
+            <div class="char-stat-card">
+                <div class="char-stat-num">@Stats.ChineseCount</div>
+                <div class="char-stat-label">中文字符</div>
+            </div>
+        </div>
+
+        @* AI Accept [Added]: Detailed breakdown *@
+        <div class="tool-content" style="margin-top: 20px;">
+            <div class="card">
+                <div class="card-header">
+                    <span>📋 字符分类</span>
+                </div>
+                <div class="card-body">
+                    <table class="jwt-claims-table">
+                        <thead>
+                            <tr>
+                                <th>类型</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>字母</td>
+                                <td><code>@Stats.LetterCount</code></td>
+                                <td>@Pct(Stats.LetterCount)</td>
+                            </tr>
+                            <tr>
+                                <td>数字</td>
+                                <td><code>@Stats.DigitCount</code></td>
+                                <td>@Pct(Stats.DigitCount)</td>
+                            </tr>
+                            <tr>
+                                <td>中文</td>
+                                <td><code>@Stats.ChineseCount</code></td>
+                                <td>@Pct(Stats.ChineseCount)</td>
+                            </tr>
+                            <tr>
+                                <td>空格</td>
+                                <td><code>@Stats.SpaceCount</code></td>
+                                <td>@Pct(Stats.SpaceCount)</td>
+                            </tr>
+                            <tr>
+                                <td>标点符号</td>
+                                <td><code>@Stats.PunctuationCount</code></td>
+                                <td>@Pct(Stats.PunctuationCount)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @* AI Accept [Added]: Character frequency table *@
+            <div class="card">
+                <div class="card-header">
+                    <span>🔤 字符频率 (Top 30)</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    @if (Stats.TopFrequencies.Any())
+                    {
+                        <table class="jwt-claims-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">字符</th>
+                                    <th style="width: 60px;">次数</th>
+                                    <th style="width: 60px;">占比</th>
+                                    <th>分布</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var f in Stats.TopFrequencies)
+                                {
+                                    <tr>
+                                        <td><code style="font-size: 14px;">@f.Char</code></td>
+                                        <td>@f.Count</td>
+                                        <td>@f.Percent%</td>
+                                        <td>
+                                            <div class="char-freq-bar">
+                                                <div class="char-freq-fill" style="width: @(Math.Min(f.Percent * 3, 100))%;"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Character statistics page state
+    private string InputText { get; set; } = string.Empty;
+    private DevToolbox.Web.Services.CharStatsResult? Stats { get; set; }
+
+    private void Analyze()
+    {
+        if (!string.IsNullOrEmpty(InputText))
+        {
+            Stats = ToolService.GetCharStats(InputText);
+        }
+    }
+
+    private void LoadSample()
+    {
+        InputText = "Hello World! 你好世界！\nThis is a sample text with 123 numbers.\n这是一段包含中英文混合的测试文本，用于验证字符统计功能。\nSpecial chars: @@#$%^&*()";
+        Analyze();
+    }
+
+    private void Clear()
+    {
+        InputText = string.Empty;
+        Stats = null;
+    }
+
+    /// <summary>
+    /// Calculate percentage string (AI Accept)
+    /// </summary>
+    private string Pct(int count)
+    {
+        if (Stats == null || Stats.TotalChars == 0) return "0%";
+        return $"{(count * 100.0 / Stats.TotalChars):F1}%";
+    }
+
+    /// <summary>
+    /// Format bytes to human readable (AI Accept)
+    /// </summary>
+    private string FormatBytes(int bytes)
+    {
+        if (bytes >= 1048576) return $"{bytes / 1048576.0:F1} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes} B";
+    }
+}
