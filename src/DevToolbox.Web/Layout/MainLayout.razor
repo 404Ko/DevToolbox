@@ -19,12 +19,15 @@
         </nav>
     </aside>
 
-    @* 右侧内容区 (AI Accept [Modified]: 移除空header，内容靠上居中) *@
-    <main>
-        <article class="content">
+    @* AI Accept [Modified]: 简化结构，用单个div替代main/article嵌套 *@
+    <div class="main-area">
+        <div class="content">
             @Body
-        </article>
-    </main>
+        </div>
+        <footer class="app-footer">
+            © @DateTime.Now.Year DevToolbox · All rights reserved · Owner: pengjie
+        </footer>
+    </div>
 </div>
 
 @code {

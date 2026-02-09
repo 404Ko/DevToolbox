@@ -103,7 +103,27 @@ html, body {
 .btn-theme:hover, .btn-github:hover { background-color: var(--bg-hover); color: var(--text-primary); }
 .btn-menu-mobile { display: none; background: none; border: none; font-size: 24px; cursor: pointer; margin-right: auto; }
 
-.content { flex: 1; padding: 24px; background-color: var(--bg-secondary); display: flex; flex-direction: column; align-items: center; } /* AI Accept [Modified]: 内容区flex居中布局 */
+.content { padding: 24px; display: flex; flex-direction: column; align-items: center; } /* AI Accept [Modified]: 内容自适应高度 */
+
+/* AI Accept [Modified]: Main area - flex:1 fills remaining space, no min-height to avoid double 100vh gap */
+.main-area {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-secondary);
+}
+
+/* AI Accept [Modified]: Footer sticks to bottom via margin-top:auto, centered */
+.app-footer {
+    padding: 16px 24px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    margin-top: auto;
+}
 
 /* AI Accept [Modified]: Removed sidebar collapse styles, sidebar is now fixed */
 
