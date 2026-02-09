@@ -1,0 +1,226 @@
+@page "/time/calculator"
+@using DevToolbox.Web.Services
+@inject ITimeService TimeService
+
+<PageTitle>日期计算器 - DevToolbox</PageTitle>
+
+@* Date calculator tool page (AI Accept) *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>📅 日期计算器</h1>
+        <p>日期间隔计算、日期加减运算</p>
+    </div>
+
+    <div class="tool-content">
+        @* AI Accept [Added]: Date difference calculation section *@
+        <div class="card">
+            <div class="card-header">📐 日期间隔计算</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">开始日期</label>
+                    <input type="date" class="form-control" @bind="DiffStartDate" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">结束日期</label>
+                    <input type="date" class="form-control" @bind="DiffEndDate" />
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary" @onclick="CalculateDiff">计算间隔</button>
+                    <button class="btn btn-sm btn-secondary" @onclick="SetDiffToToday">结束设为今天</button>
+                </div>
+
+                @if (DiffResult != null)
+                {
+                    <div class="date-calc-result">
+                        <div class="date-calc-result-title">
+                            @if (DiffResult.IsNegative)
+                            {
+                                <span class="jwt-badge jwt-badge-expired">结束日期早于开始日期（已取绝对值）</span>
+                            }
+                        </div>
+
+                        <div class="date-calc-primary">
+                            @if (DiffResult.Years > 0)
+                            {
+                                <span class="date-calc-num">@DiffResult.Years</span><span class="date-calc-unit">年</span>
+                            }
+                            @if (DiffResult.Months > 0)
+                            {
+                                <span class="date-calc-num">@DiffResult.Months</span><span class="date-calc-unit">个月</span>
+                            }
+                            <span class="date-calc-num">@DiffResult.Days</span><span class="date-calc-unit">天</span>
+                        </div>
+
+                        <div class="date-calc-details">
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@DiffResult.TotalDays.ToString("N0")</span>
+                                <span class="date-calc-detail-label">总天数</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@DiffResult.TotalWeeks.ToString("N0")</span>
+                                <span class="date-calc-detail-label">总周数</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@DiffResult.TotalHours.ToString("N0")</span>
+                                <span class="date-calc-detail-label">总小时</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@DiffResult.TotalMinutes.ToString("N0")</span>
+                                <span class="date-calc-detail-label">总分钟</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@DiffResult.TotalSeconds.ToString("N0")</span>
+                                <span class="date-calc-detail-label">总秒数</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* AI Accept [Added]: Date add/subtract calculation section *@
+        <div class="card">
+            <div class="card-header">➕ 日期加减运算</div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">基准日期</label>
+                    <input type="date" class="form-control" @bind="AddBaseDate" />
+                </div>
+
+                <div class="options-row" style="margin-bottom: 12px;">
+                    <label class="option-item">
+                        <input type="radio" name="addMode" checked="@(!IsSubtract)"
+                               @onchange="@(() => IsSubtract = false)" />
+                        <span>加</span>
+                    </label>
+                    <label class="option-item">
+                        <input type="radio" name="addMode" checked="@IsSubtract"
+                               @onchange="@(() => IsSubtract = true)" />
+                        <span>减</span>
+                    </label>
+                </div>
+
+                <div class="date-calc-inputs">
+                    <div class="form-group date-calc-input-item">
+                        <label class="form-label">年</label>
+                        <input type="number" class="form-control" @bind="AddYears" min="0" />
+                    </div>
+                    <div class="form-group date-calc-input-item">
+                        <label class="form-label">月</label>
+                        <input type="number" class="form-control" @bind="AddMonths" min="0" />
+                    </div>
+                    <div class="form-group date-calc-input-item">
+                        <label class="form-label">周</label>
+                        <input type="number" class="form-control" @bind="AddWeeks" min="0" />
+                    </div>
+                    <div class="form-group date-calc-input-item">
+                        <label class="form-label">天</label>
+                        <input type="number" class="form-control" @bind="AddDays" min="0" />
+                    </div>
+                </div>
+
+                <button class="btn btn-success" @onclick="CalculateAdd">计算结果</button>
+
+                @if (!string.IsNullOrEmpty(AddResult))
+                {
+                    <div class="date-calc-result">
+                        <div class="date-calc-primary">
+                            <span class="date-calc-num" style="font-size: 20px;">@AddResult</span>
+                        </div>
+                        <div class="date-calc-details">
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@AddResultWeekday</span>
+                                <span class="date-calc-detail-label">星期</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@AddResultDayOfYear</span>
+                                <span class="date-calc-detail-label">当年第N天</span>
+                            </div>
+                            <div class="date-calc-detail-item">
+                                <span class="date-calc-detail-val">@AddResultIsLeap</span>
+                                <span class="date-calc-detail-label">闰年</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger">@ErrorMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Date diff state
+    private DateTime DiffStartDate { get; set; } = DateTime.Today;
+    private DateTime DiffEndDate { get; set; } = DateTime.Today;
+    private DateDiffResult? DiffResult { get; set; }
+
+    // AI Accept [Added]: Date add/subtract state
+    private DateTime AddBaseDate { get; set; } = DateTime.Today;
+    private bool IsSubtract { get; set; } = false;
+    private int AddYears { get; set; } = 0;
+    private int AddMonths { get; set; } = 0;
+    private int AddWeeks { get; set; } = 0;
+    private int AddDays { get; set; } = 0;
+    private string AddResult { get; set; } = string.Empty;
+    private string AddResultWeekday { get; set; } = string.Empty;
+    private string AddResultDayOfYear { get; set; } = string.Empty;
+    private string AddResultIsLeap { get; set; } = string.Empty;
+
+    private string ErrorMessage { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Calculate date difference (AI Accept)
+    /// </summary>
+    private void CalculateDiff()
+    {
+        ErrorMessage = string.Empty;
+        DiffResult = null;
+
+        try
+        {
+            DiffResult = TimeService.CalculateDateDiff(DiffStartDate, DiffEndDate);
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"计算失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Set end date to today (AI Accept)
+    /// </summary>
+    private void SetDiffToToday()
+    {
+        DiffEndDate = DateTime.Today;
+    }
+
+    // AI Accept [Added]: Chinese weekday names
+    private static readonly string[] WeekdayNames = { "日", "一", "二", "三", "四", "五", "六" };
+
+    /// <summary>
+    /// Calculate date addition/subtraction (AI Accept)
+    /// </summary>
+    private void CalculateAdd()
+    {
+        ErrorMessage = string.Empty;
+        AddResult = string.Empty;
+
+        try
+        {
+            var result = TimeService.AddToDate(AddBaseDate, AddYears, AddMonths, AddWeeks, AddDays, IsSubtract);
+            AddResult = result.ToString("yyyy-MM-dd");
+            AddResultWeekday = $"星期{WeekdayNames[(int)result.DayOfWeek]}";
+            AddResultDayOfYear = result.DayOfYear.ToString();
+            AddResultIsLeap = DateTime.IsLeapYear(result.Year) ? "是" : "否";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"计算失败：{ex.Message}";
+        }
+    }
+}
