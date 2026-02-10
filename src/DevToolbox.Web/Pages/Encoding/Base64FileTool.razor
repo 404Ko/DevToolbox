@@ -106,11 +106,17 @@
 
                     <div class="form-group" style="margin-top: 12px;">
                         <label class="form-label">文件名</label>
-                        <div style="display: flex; align-items: center; gap: 0; max-width: 300px;">
+                        @* AI Accept [Modified]: Extension field editable for manual override *@
+                        <div style="display: flex; align-items: center; gap: 0; max-width: 360px;">
                             <input type="text" class="form-control"
-                                   style="border-top-right-radius: 0; border-bottom-right-radius: 0;"
+                                   style="border-top-right-radius: 0; border-bottom-right-radius: 0; flex: 1;"
                                    @bind="DownloadFileBaseName" />
-                            <span style="padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: none; border-radius: 0 6px 6px 0; font-family: 'Consolas', monospace; font-size: 14px; white-space: nowrap; color: var(--text-secondary);">@DecodeInfo.Extension</span>
+                            <input type="text" class="form-control"
+                                   style="border-radius: 0; border-left: none; width: 70px; font-family: 'Consolas', monospace; font-size: 14px; text-align: center;"
+                                   @bind="DownloadFileExtension" />
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
+                            检测后缀：<code>@DecodeInfo.Extension</code>（可手动修改）
                         </div>
                     </div>
 
@@ -142,6 +148,8 @@
     private string DecodeInput { get; set; } = string.Empty;
     private string DecodeError { get; set; } = string.Empty;
     private string DownloadFileBaseName { get; set; } = "download";
+    // AI Accept [Added]: Editable extension field, auto-set from detection but user can override
+    private string DownloadFileExtension { get; set; } = ".bin";
     private FileDecodeInfo? DecodeInfo { get; set; }
 
     private string SuccessMessage { get; set; } = string.Empty;
@@ -291,6 +299,8 @@
             };
 
             DownloadFileBaseName = "download";
+            // AI Accept [Added]: Set editable extension from detected type
+            DownloadFileExtension = ext;
         }
         catch (FormatException)
         {
@@ -312,9 +322,8 @@
 
         try
         {
-            // AI Accept [Added]: Trigger download via JS data URI
-            // AI Accept [Modified]: Always use detected extension from Base64 analysis
-            var fullFileName = DownloadFileBaseName + DecodeInfo.Extension;
+            // AI Accept [Modified]: Use user-editable extension field for download
+            var fullFileName = DownloadFileBaseName + DownloadFileExtension;
             var safeFileName = fullFileName.Replace("'", "\\'");
             var js = "(function(){var a=document.createElement('a');"
                 + "a.href='data:" + DecodeInfo.MimeType + ";base64," + DecodeInfo.Base64Data + "';"
@@ -335,6 +344,7 @@
         DecodeError = string.Empty;
         DecodeInfo = null;
         DownloadFileBaseName = "download";
+        DownloadFileExtension = ".bin"; // AI Accept [Added]: Reset extension on clear
         SuccessMessage = string.Empty;
     }
 
