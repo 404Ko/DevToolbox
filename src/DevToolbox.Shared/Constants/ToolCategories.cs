@@ -18,6 +18,7 @@ public static class ToolCategoriesConfig
             Tools = new List<ToolItem>
             {
                 new("Base64 编码/解码", "/encoding/base64"),
+                new("Base64 转文件", "/encoding/base64-file"),  // AI Accept [Added]
                 new("URL 编码/解码", "/encoding/url"),
                 //new("HTML 实体编码", "/encoding/html"),
                 //new("Unicode 编码", "/encoding/unicode"),

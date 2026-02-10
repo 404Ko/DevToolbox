@@ -1,0 +1,344 @@
+@page "/encoding/base64-file"
+@inject DevToolbox.Web.Services.IEncodingService EncodingService
+@inject IJSRuntime JS
+
+<PageTitle>Base64 转文件 - DevToolbox</PageTitle>
+
+@* AI Accept [Added]: Base64 ↔ File converter tool page *@
+<div class="tool-page">
+    <div class="tool-header">
+        <h1>📁 Base64 ↔ 文件转换</h1>
+        <p>文件与 Base64 互转：上传文件生成 Base64，或粘贴 Base64 还原为文件下载</p>
+    </div>
+
+    <div class="tool-content">
+        @* AI Accept [Added]: File → Base64 section *@
+        <div class="card">
+            <div class="card-header">
+                <span>📤 文件 → Base64</span>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">选择文件</label>
+                    <InputFile OnChange="OnFileUpload" class="form-control"
+                               style="padding: 8px;" accept="*/*" />
+                </div>
+
+                @if (UploadInfo != null)
+                {
+                    <div class="b64file-info">
+                        <span>📄 @UploadInfo.FileName</span>
+                        <span>@FormatSize(UploadInfo.FileSize)</span>
+                        <span>@UploadInfo.MimeType</span>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(EncodeResult))
+                {
+                    <div class="form-group" style="margin-top: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label class="form-label" style="margin-bottom: 0;">Base64 结果</label>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="checkbox" id="chk-datauri" @bind="IncludeDataUri" @bind:after="RefreshEncodeResult" />
+                                <label for="chk-datauri" style="font-size: 12px;">包含 Data URI 前缀</label>
+                            </div>
+                        </div>
+                        <textarea class="form-control" rows="6" readonly
+                                  style="min-height: 120px; font-size: 12px;"
+                                  value="@GetDisplayResult()"></textarea>
+                    </div>
+                    <div class="btn-group" style="margin-top: 8px;">
+                        <button class="btn btn-sm btn-secondary" @onclick="CopyEncodeResult">📋 复制</button>
+                    </div>
+                    <div style="margin-top: 6px; font-size: 12px; color: var(--text-secondary);">
+                        Base64 长度：@GetDisplayResult().Length 字符（原始 @FormatSize(UploadInfo?.FileSize ?? 0) → 编码后 @FormatSize(EncodeResult.Length)）
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(UploadError))
+                {
+                    <div class="alert alert-danger">@UploadError</div>
+                }
+            </div>
+        </div>
+
+        @* AI Accept [Added]: Base64 → File section *@
+        <div class="card">
+            <div class="card-header">
+                <span>📥 Base64 → 文件</span>
+            </div>
+            <div class="card-body">
+                <div class="form-group">
+                    <label class="form-label">粘贴 Base64（支持 Data URI 格式）</label>
+                    <textarea class="form-control" rows="6"
+                              style="min-height: 120px; font-size: 12px;"
+                              placeholder="粘贴 Base64 编码字符串...&#10;支持格式：&#10;  data:image/png;base64,iVBORw0KGgo...&#10;  iVBORw0KGgo... (纯 Base64)"
+                              @bind="DecodeInput"></textarea>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" @onclick="DecodeAndAnalyze">🔍 解析</button>
+                    <button class="btn btn-secondary" @onclick="ClearDecode">🗑️ 清空</button>
+                </div>
+
+                @if (!string.IsNullOrEmpty(DecodeError))
+                {
+                    <div class="alert alert-danger">@DecodeError</div>
+                }
+
+                @if (DecodeInfo != null)
+                {
+                    <div class="b64file-info" style="margin-top: 12px;">
+                        <span>📄 检测类型：@DecodeInfo.MimeType</span>
+                        <span>文件大小：@FormatSize(DecodeInfo.FileSize)</span>
+                        <span>扩展名：@DecodeInfo.Extension</span>
+                    </div>
+
+                    @* AI Accept [Added]: Image preview *@
+                    @if (DecodeInfo.MimeType.StartsWith("image/") && DecodeInfo.FileSize < 5 * 1024 * 1024)
+                    {
+                        <div style="margin-top: 12px; text-align: center;">
+                            <img src="data:@DecodeInfo.MimeType;base64,@DecodeInfo.Base64Data"
+                                 style="max-width: 100%; max-height: 300px; border: 1px solid var(--border-color); border-radius: 6px;"
+                                 alt="Preview" />
+                        </div>
+                    }
+
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="form-label">文件名</label>
+                        <input type="text" class="form-control" style="max-width: 300px;"
+                               @bind="DownloadFileName" />
+                    </div>
+
+                    <button class="btn btn-success" style="margin-top: 8px;" @onclick="DownloadFile">
+                        ⬇️ 下载文件
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(SuccessMessage))
+    {
+        <div class="alert alert-success">@SuccessMessage</div>
+    }
+</div>
+
+@code {
+    // AI Accept [Added]: Base64 ↔ File converter state
+
+    // === File → Base64 ===
+    private string EncodeResult { get; set; } = string.Empty;
+    private string UploadError { get; set; } = string.Empty;
+    private bool IncludeDataUri { get; set; } = true;
+    private FileUploadInfo? UploadInfo { get; set; }
+    private string UploadMimeType { get; set; } = string.Empty;
+
+    // === Base64 → File ===
+    private string DecodeInput { get; set; } = string.Empty;
+    private string DecodeError { get; set; } = string.Empty;
+    private string DownloadFileName { get; set; } = "download";
+    private FileDecodeInfo? DecodeInfo { get; set; }
+
+    private string SuccessMessage { get; set; } = string.Empty;
+
+    // AI Accept [Added]: Max upload size (10MB)
+    private const long MaxFileSize = 10 * 1024 * 1024;
+
+    private class FileUploadInfo
+    {
+        public string FileName { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public string MimeType { get; set; } = string.Empty;
+    }
+
+    private class FileDecodeInfo
+    {
+        public string MimeType { get; set; } = string.Empty;
+        public string Extension { get; set; } = string.Empty;
+        public long FileSize { get; set; }
+        public string Base64Data { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Handle file upload via InputFile (AI Accept)
+    /// </summary>
+    private async Task OnFileUpload(InputFileChangeEventArgs e)
+    {
+        UploadError = string.Empty;
+        EncodeResult = string.Empty;
+        UploadInfo = null;
+        SuccessMessage = string.Empty;
+
+        var file = e.File;
+        if (file == null) return;
+
+        if (file.Size > MaxFileSize)
+        {
+            UploadError = $"文件太大（{FormatSize(file.Size)}），最大支持 10MB";
+            return;
+        }
+
+        try
+        {
+            // AI Accept [Added]: Read file bytes via stream
+            using var stream = file.OpenReadStream(MaxFileSize);
+            using var ms = new System.IO.MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            EncodeResult = EncodingService.Base64EncodeBytes(bytes);
+            UploadMimeType = !string.IsNullOrEmpty(file.ContentType)
+                ? file.ContentType
+                : EncodingService.DetectMimeType(bytes);
+
+            UploadInfo = new FileUploadInfo
+            {
+                FileName = file.Name,
+                FileSize = file.Size,
+                MimeType = UploadMimeType
+            };
+        }
+        catch (Exception ex)
+        {
+            UploadError = $"读取文件失败：{ex.Message}";
+        }
+    }
+
+    private string GetDisplayResult()
+    {
+        if (string.IsNullOrEmpty(EncodeResult)) return string.Empty;
+        return IncludeDataUri
+            ? $"data:{UploadMimeType};base64,{EncodeResult}"
+            : EncodeResult;
+    }
+
+    private void RefreshEncodeResult() { /* triggers re-render */ }
+
+    /// <summary>
+    /// Copy encode result to clipboard (AI Accept)
+    /// </summary>
+    private async Task CopyEncodeResult()
+    {
+        SuccessMessage = string.Empty;
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", GetDisplayResult());
+            SuccessMessage = "已复制到剪贴板";
+        }
+        catch
+        {
+            UploadError = "复制失败";
+        }
+    }
+
+    /// <summary>
+    /// Decode Base64 and analyze file type (AI Accept)
+    /// </summary>
+    private void DecodeAndAnalyze()
+    {
+        DecodeError = string.Empty;
+        DecodeInfo = null;
+        SuccessMessage = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(DecodeInput))
+        {
+            DecodeError = "请输入 Base64 字符串";
+            return;
+        }
+
+        try
+        {
+            var bytes = EncodingService.Base64DecodeBytes(DecodeInput);
+            if (bytes.Length == 0)
+            {
+                DecodeError = "解码结果为空";
+                return;
+            }
+
+            // AI Accept [Added]: Extract MIME from data URI if present, otherwise detect
+            var mime = "application/octet-stream";
+            var trimmed = DecodeInput.Trim();
+            if (trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+            {
+                var semiIdx = trimmed.IndexOf(';');
+                if (semiIdx > 5)
+                    mime = trimmed[5..semiIdx];
+            }
+            else
+            {
+                mime = EncodingService.DetectMimeType(bytes);
+            }
+
+            var ext = EncodingService.GetExtensionFromMime(mime);
+
+            // AI Accept [Added]: Extract pure base64 for preview/download
+            var pureBase64 = trimmed;
+            var commaIdx = pureBase64.IndexOf(',');
+            if (commaIdx >= 0 && pureBase64.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                pureBase64 = pureBase64[(commaIdx + 1)..];
+
+            DecodeInfo = new FileDecodeInfo
+            {
+                MimeType = mime,
+                Extension = ext,
+                FileSize = bytes.Length,
+                Base64Data = pureBase64.Replace("\n", "").Replace("\r", "").Replace(" ", "")
+            };
+
+            DownloadFileName = $"download{ext}";
+        }
+        catch (FormatException)
+        {
+            DecodeError = "Base64 格式无效，请检查输入";
+        }
+        catch (Exception ex)
+        {
+            DecodeError = $"解析失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Download decoded file via JS interop (AI Accept)
+    /// </summary>
+    private async Task DownloadFile()
+    {
+        if (DecodeInfo == null) return;
+        SuccessMessage = string.Empty;
+
+        try
+        {
+            // AI Accept [Added]: Trigger download via JS data URI
+            var safeFileName = DownloadFileName.Replace("'", "\\'");
+            var js = "(function(){var a=document.createElement('a');"
+                + "a.href='data:" + DecodeInfo.MimeType + ";base64," + DecodeInfo.Base64Data + "';"
+                + "a.download='" + safeFileName + "';"
+                + "document.body.appendChild(a);a.click();document.body.removeChild(a);})();";
+            await JS.InvokeVoidAsync("eval", js);
+            SuccessMessage = $"文件 \"{DownloadFileName}\" 已开始下载";
+        }
+        catch (Exception ex)
+        {
+            DecodeError = $"下载失败：{ex.Message}";
+        }
+    }
+
+    private void ClearDecode()
+    {
+        DecodeInput = string.Empty;
+        DecodeError = string.Empty;
+        DecodeInfo = null;
+        DownloadFileName = "download";
+        SuccessMessage = string.Empty;
+    }
+
+    /// <summary>
+    /// Format file size to human readable (AI Accept)
+    /// </summary>
+    private string FormatSize(long bytes)
+    {
+        if (bytes >= 1048576) return $"{bytes / 1048576.0:F1} MB";
+        if (bytes >= 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes} B";
+    }
+}
