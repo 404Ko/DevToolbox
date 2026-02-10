@@ -321,17 +321,49 @@ public class EncodingService : IEncodingService
         if (data.Length >= 4 && data[0] == 0x00 && data[1] == 0x00 && data[2] == 0x01 && data[3] == 0x00)
             return "image/x-icon";
 
-        // AI Accept [Added]: Check text-based formats
+        // AI Accept [Added]: Check text-based formats by header
         var header = Encoding.ASCII.GetString(data, 0, Math.Min(data.Length, 256));
         if (header.TrimStart().StartsWith("<svg", StringComparison.OrdinalIgnoreCase))
             return "image/svg+xml";
-        if (header.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase) ||
-            header.TrimStart().StartsWith("<", StringComparison.OrdinalIgnoreCase))
+        if (header.TrimStart().StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
             return "application/xml";
         if (header.TrimStart().StartsWith("{") || header.TrimStart().StartsWith("["))
             return "application/json";
+        if (header.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase) ||
+            header.TrimStart().StartsWith("<!doctype html", StringComparison.OrdinalIgnoreCase))
+            return "text/html";
+        if (header.TrimStart().StartsWith("<"))
+            return "application/xml";
+
+        // AI Accept [Added]: Heuristic text detection - if most bytes are printable, it's text
+        if (IsLikelyText(data))
+            return "text/plain";
 
         return "application/octet-stream";
+    }
+
+    /// <summary>
+    /// Heuristic: check if byte array is likely text content (AI Accept)
+    /// </summary>
+    private static bool IsLikelyText(byte[] data)
+    {
+        // AI Accept [Added]: Sample up to 8KB for performance
+        var checkLen = Math.Min(data.Length, 8192);
+        int nonTextBytes = 0;
+
+        for (int i = 0; i < checkLen; i++)
+        {
+            var b = data[i];
+            // Printable ASCII (0x20-0x7E), tab(0x09), newline(0x0A), carriage return(0x0D)
+            // Also allow high bytes (0x80+) for UTF-8 multi-byte sequences
+            if (b < 0x09 || (b > 0x0D && b < 0x20 && b != 0x1B) || b == 0x7F)
+            {
+                nonTextBytes++;
+            }
+        }
+
+        // If less than 5% non-text bytes, consider it text
+        return nonTextBytes * 100.0 / checkLen < 5;
     }
 
     /// <summary>
@@ -355,6 +387,11 @@ public class EncodingService : IEncodingService
         "audio/wav" => ".wav",
         "audio/ogg" => ".ogg",
         "video/mp4" => ".mp4",
+        "text/plain" => ".txt",
+        "text/html" => ".html",
+        "text/css" => ".css",
+        "text/javascript" => ".js",
+        "text/csv" => ".csv",
         _ => ".bin"
     };
 }
