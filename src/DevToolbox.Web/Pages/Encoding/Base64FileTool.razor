@@ -106,8 +106,12 @@
 
                     <div class="form-group" style="margin-top: 12px;">
                         <label class="form-label">文件名</label>
-                        <input type="text" class="form-control" style="max-width: 300px;"
-                               @bind="DownloadFileName" />
+                        <div style="display: flex; align-items: center; gap: 0; max-width: 300px;">
+                            <input type="text" class="form-control"
+                                   style="border-top-right-radius: 0; border-bottom-right-radius: 0;"
+                                   @bind="DownloadFileBaseName" />
+                            <span style="padding: 10px 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-left: none; border-radius: 0 6px 6px 0; font-family: 'Consolas', monospace; font-size: 14px; white-space: nowrap; color: var(--text-secondary);">@DecodeInfo.Extension</span>
+                        </div>
                     </div>
 
                     <button class="btn btn-success" style="margin-top: 8px;" @onclick="DownloadFile">
@@ -137,7 +141,7 @@
     // === Base64 → File ===
     private string DecodeInput { get; set; } = string.Empty;
     private string DecodeError { get; set; } = string.Empty;
-    private string DownloadFileName { get; set; } = "download";
+    private string DownloadFileBaseName { get; set; } = "download";
     private FileDecodeInfo? DecodeInfo { get; set; }
 
     private string SuccessMessage { get; set; } = string.Empty;
@@ -286,7 +290,7 @@
                 Base64Data = pureBase64.Replace("\n", "").Replace("\r", "").Replace(" ", "")
             };
 
-            DownloadFileName = $"download{ext}";
+            DownloadFileBaseName = "download";
         }
         catch (FormatException)
         {
@@ -309,13 +313,15 @@
         try
         {
             // AI Accept [Added]: Trigger download via JS data URI
-            var safeFileName = DownloadFileName.Replace("'", "\\'");
+            // AI Accept [Modified]: Always use detected extension from Base64 analysis
+            var fullFileName = DownloadFileBaseName + DecodeInfo.Extension;
+            var safeFileName = fullFileName.Replace("'", "\\'");
             var js = "(function(){var a=document.createElement('a');"
                 + "a.href='data:" + DecodeInfo.MimeType + ";base64," + DecodeInfo.Base64Data + "';"
                 + "a.download='" + safeFileName + "';"
                 + "document.body.appendChild(a);a.click();document.body.removeChild(a);})();";
             await JS.InvokeVoidAsync("eval", js);
-            SuccessMessage = $"文件 \"{DownloadFileName}\" 已开始下载";
+            SuccessMessage = $"文件 \"{fullFileName}\" 已开始下载";
         }
         catch (Exception ex)
         {
@@ -328,7 +334,7 @@
         DecodeInput = string.Empty;
         DecodeError = string.Empty;
         DecodeInfo = null;
-        DownloadFileName = "download";
+        DownloadFileBaseName = "download";
         SuccessMessage = string.Empty;
     }
 
