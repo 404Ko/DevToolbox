@@ -94,6 +94,69 @@ public class FormatterService : IFormatterService
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    // AI Accept [Added]: Shared JsonDocumentOptions for lenient parsing
+    private static readonly JsonDocumentOptions LenientJsonOptions = new()
+    {
+        AllowTrailingCommas = true,
+        CommentHandling = JsonCommentHandling.Skip
+    };
+
+    /// <summary>
+    /// Normalize non-standard JSON: convert single quotes to double quotes (AI Accept)
+    /// </summary>
+    private static string NormalizeJsonQuotes(string input)
+    {
+        // AI Accept [Added]: Only run conversion if single quotes are present and no double-quote keys found
+        if (string.IsNullOrEmpty(input)) return input;
+
+        var trimmed = input.TrimStart();
+        // Quick check: if it already starts with standard JSON tokens with double quotes, skip
+        if (trimmed.StartsWith("{\"") || trimmed.StartsWith("[\"") ||
+            trimmed.StartsWith("[{") || trimmed.StartsWith("[[") ||
+            trimmed.StartsWith("[0") || trimmed.StartsWith("[1") ||
+            trimmed.StartsWith("[-") || trimmed.StartsWith("[n") ||
+            trimmed.StartsWith("[t") || trimmed.StartsWith("[f"))
+            return input;
+
+        // AI Accept [Added]: State machine to replace single quotes with double quotes
+        // Handles: escaped chars inside strings, nested quotes
+        var sb = new System.Text.StringBuilder(input.Length);
+        bool inSingleQuote = false;
+        bool inDoubleQuote = false;
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            char c = input[i];
+
+            if (c == '\\' && (inSingleQuote || inDoubleQuote) && i + 1 < input.Length)
+            {
+                // Escaped character - pass through as-is
+                sb.Append(c);
+                sb.Append(input[i + 1]);
+                i++;
+                continue;
+            }
+
+            if (c == '"' && !inSingleQuote)
+            {
+                inDoubleQuote = !inDoubleQuote;
+                sb.Append(c);
+                continue;
+            }
+
+            if (c == '\'' && !inDoubleQuote)
+            {
+                inSingleQuote = !inSingleQuote;
+                sb.Append('"'); // Replace single quote with double quote
+                continue;
+            }
+
+            sb.Append(c);
+        }
+
+        return sb.ToString();
+    }
+
     // AI Accept [Added]: Regex to parse C# property definitions
     private static readonly Regex PropertyRegex = new(
         @"public\s+(?<type>[\w<>\[\]?,\s]+?)\s+(?<name>\w+)\s*\{\s*get\s*;\s*set\s*;\s*\}",
@@ -120,11 +183,9 @@ public class FormatterService : IFormatterService
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Input cannot be empty.");
 
-        using var doc = JsonDocument.Parse(input, new JsonDocumentOptions
-        {
-            AllowTrailingCommas = true,
-            CommentHandling = JsonCommentHandling.Skip
-        });
+        // AI Accept [Modified]: Normalize single quotes before parsing
+        var normalized = NormalizeJsonQuotes(input);
+        using var doc = JsonDocument.Parse(normalized, LenientJsonOptions);
 
         return JsonSerializer.Serialize(doc.RootElement, FormatOptions);
     }
@@ -137,11 +198,9 @@ public class FormatterService : IFormatterService
         if (string.IsNullOrWhiteSpace(input))
             throw new ArgumentException("Input cannot be empty.");
 
-        using var doc = JsonDocument.Parse(input, new JsonDocumentOptions
-        {
-            AllowTrailingCommas = true,
-            CommentHandling = JsonCommentHandling.Skip
-        });
+        // AI Accept [Modified]: Normalize single quotes before parsing
+        var normalized = NormalizeJsonQuotes(input);
+        using var doc = JsonDocument.Parse(normalized, LenientJsonOptions);
 
         return JsonSerializer.Serialize(doc.RootElement, CompressOptions);
     }
@@ -161,15 +220,12 @@ public class FormatterService : IFormatterService
             return result;
         }
 
-        // AI Accept [Added]: Parse JSON document
+        // AI Accept [Modified]: Normalize single quotes before parsing
+        var normalized = NormalizeJsonQuotes(json);
         JsonDocument doc;
         try
         {
-            doc = JsonDocument.Parse(json, new JsonDocumentOptions
-            {
-                AllowTrailingCommas = true,
-                CommentHandling = JsonCommentHandling.Skip
-            });
+            doc = JsonDocument.Parse(normalized, LenientJsonOptions);
         }
         catch (JsonException ex)
         {
